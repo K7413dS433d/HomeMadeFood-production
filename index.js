@@ -1,12 +1,15 @@
-import express from 'express'
-import cors from 'cors'
-import bootstrap from './src/app.controller.js';
+import express from "express";
+import cors from "cors";
+import bootstrap from "./src/app.controller.js";
 
-const app=express();
-const port=+process.env.PORT||3000;
+const app = express();
+
+const port = +process.env.PORT || 3000;
+
+app.get("/", (req, res) => res.send("this is for test "));
 app.use(cors());
-bootstrap(app,express)
-app.listen(port,(error)=>{
-    if(error) console.log(error)
-        else console.log(`server running on port: ${port}`);  
-    });
+bootstrap(app, express);
+app.listen(port, (error) => {
+  if (error) console.log(error);
+  else console.log(`server running on port: ${port}`);
+});
