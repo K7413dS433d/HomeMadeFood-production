@@ -46,6 +46,7 @@ userRouter.put(
   "/switch-role",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER, roles.CHEF),
+  middlewares.isVerified,
   middlewares.switchRoleDataValidation,
   asyncHandler(userService.switchRole)
 );

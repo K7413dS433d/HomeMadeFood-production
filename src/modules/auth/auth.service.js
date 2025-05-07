@@ -121,7 +121,7 @@ export const verifyEmail = async (req, res, next) => {
   }
 
   await models.User.findByIdAndUpdate(user._id, { verified: true });
-
+  await otpModel.deleteOne({ email });
   res
     .status(200)
     .json({ success: true, massage: "Email Verified Successfully" });
@@ -172,7 +172,7 @@ export const changePassword = async (req, res, next) => {
     user.password = password;
     await user.save();
   }
-
+  await otpModel.deleteOne({ email });
   res.status(200).json({
     success: true,
     massage: "Password Change Successfully",

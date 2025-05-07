@@ -181,18 +181,6 @@ userSchema.virtual("locations", {
   foreignField: "userId",
 });
 
-//remove password from return
-userSchema.set("toJSON", {
-  transform: function (_, ret) {
-    if(Object.values(ret.openSchedule).length == 0 ||Object.values(ret.kitchenAddress).length == 0){
-      delete ret.openSchedule;
-      delete ret.kitchenAddress;
-    }
-    delete ret.password;
-    return ret;
-  },
-});
-
 //data hiding hook
 userSchema.pre("save", dataHashing);
 

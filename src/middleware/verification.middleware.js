@@ -1,4 +1,4 @@
-import { AppError } from "../utils/index.utils";
+import { AppError } from "../utils/index.utils.js";
 
 export const isVerified = (req, res, next) => {
   //check account verification
