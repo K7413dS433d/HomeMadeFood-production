@@ -1,5 +1,3 @@
-import { AppError } from "../index.utils.js";
-
 // Helper function to verify Facebook token
 export const getFacebookUserProfile = async (token) => {
   const apiUrl = `https://graph.facebook.com/me?fields=id,email,first_name,last_name,picture&access_token=${token}`; // URL for user info

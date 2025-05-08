@@ -22,5 +22,5 @@ export * from "./thirdParty-data.middleware.js";
 //switch role
 export * from "./switch-role-data.middleware.js";
 
-//email verification
+//verification
 export * from "./verification.middleware.js";

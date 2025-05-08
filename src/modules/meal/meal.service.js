@@ -1,3 +1,5 @@
+import axios from "axios";
+import FormData from "form-data";
 import models from "./../../DB/models/index.models.js";
 import ApiFeatures from "../../utils/api-features/api-features.js";
 import * as utils from "../../utils/index.utils.js";
@@ -35,13 +37,73 @@ export const addMeal = async (req, res, next) => {
   });
 };
 
+//update chef meal
+export const updateMeal = async (req, res, next) => {
+  const { user } = req;
+  const { id } = req.params;
+  const { name, description, size, spiceLevel, tags, category, price } =
+    req.body;
+
+  //check meal exist
+  const mealExist = await models.Meal.findById(id);
+  if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
+
+  //check authorized chef
+  if (mealExist.chef.toString() != user.id)
+    return next(new utils.AppError("Unauthorized to change this meal", 401));
+
+  //check for updates
+  if (name) mealExist.name = name;
+  if (description) mealExist.description = description;
+  if (size) mealExist.size = size;
+  if (spiceLevel) mealExist.spiceLevel = spiceLevel;
+  if (tags) mealExist.tags = tags;
+  if (category) mealExist.category = category;
+  if (price) mealExist.price = price;
+  if (req.files.length) {
+    // chef meal Directory
+    const mealDir = utils.pathResolver({
+      path: `Chefs/${user.id}/meals/${mealExist.id}`,
+    });
+
+    //delete old images
+    const oldPublicIds = mealExist.images.map((img) => img.public_id);
+    await utils.deleteCloudDir({ assetsArray: oldPublicIds, dir: false });
+
+    //upload new images
+    const mealsImages = await utils.uploadFiles({
+      req,
+      options: { folder: mealDir },
+    });
+
+    //set images in meal
+    mealExist.images = mealsImages;
+  }
+
+  //save the updated meal
+  await mealExist.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Meal updated successfully",
+    data: {
+      meal: mealExist,
+    },
+  });
+};
+
 // delete meal
 export const deleteMeal = async (req, res, next) => {
   const { id } = req.params;
+  const { user } = req;
 
   //check meal is exist
   const mealExist = await models.Meal.findById(id);
   if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
+
+  //check authorized chef
+  if (mealExist.chef.toString() != user.id)
+    return next(new utils.AppError("Unauthorized to delete this meal", 401));
 
   //delete meal
   await mealExist.deleteOne();
@@ -49,7 +111,27 @@ export const deleteMeal = async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: "meal deleted successfully",
+    data: {
+      meal: mealExist,
+    },
   });
+};
+
+// get all chef meals
+export const getAllChefMeals = async (req, res, next) => {
+  const { user } = req;
+
+  //api features instance
+  const apiFeature = new ApiFeatures(
+    models.Meal.find({ chef: user.id }),
+    req.query
+  ).pagination();
+
+  //call api with feature
+  const allMeals = await apiFeature.mongooseQuery;
+  return res
+    .status(200)
+    .json({ success: true, message: "successfully", data: allMeals });
 };
 
 //add meal to fav
@@ -59,7 +141,6 @@ export const addMealToFav = async (req, res, next) => {
 
   //check meal exist
   const mealExist = await models.Meal.findById(id);
-
   if (!mealExist) return next(new utils.AppError("Meal not found", 404));
 
   //check meal is in the favorite
@@ -130,74 +211,25 @@ export const getAllMeals = async (req, res, next) => {
     .json({ success: true, message: "successfully", data: allMeals });
 };
 
-// get all chef meals
-export const getAllChefMeals = async (req, res, next) => {
-  const { user } = req;
+export const getSimilarMeals = async (req, res, next) => {
+  const file = req.file;
+  if (!file) return next(new utils.AppError("No image uploaded.", 400));
 
-  //api features instance
-  const apiFeature = new ApiFeatures(
-    models.Meal.find({ chef: user.id }),
-    req.query
-  ).pagination();
+  const formData = new FormData();
+  formData.append("file", file.path);
 
-  //call api with feature
-  const allMeals = await apiFeature.mongooseQuery;
-  return res
-    .status(200)
-    .json({ success: true, message: "successfully", data: allMeals });
-};
+  const response = await axios.post(process.env.URL_SEARCH_BY_IMAGE, formData, {
+    ...formData.getHeaders(),
+  });
 
-//update chef meal
-export const updateMeal = async (req, res, next) => {
-  const { user } = req;
-  const { id } = req.params;
-  const { name, description, size, spiceLevel, tags, category, price } =
-    req.body;
-
-  //check meal exist
-  const mealExist = await models.Meal.findById(id);
-  if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
-
-  //check authorized chef
-  if (mealExist.chef.toString() != user.id)
-    return next(new utils.AppError("Unauthorized to change this meal", 401));
-
-  //check for updates
-  if (name) mealExist.name = name;
-  if (description) mealExist.description = description;
-  if (size) mealExist.size = size;
-  if (spiceLevel) mealExist.spiceLevel = spiceLevel;
-  if (tags) mealExist.tags = tags;
-  if (category) mealExist.category = category;
-  if (price) mealExist.price = price;
-  if (req.files) {
-    // chef meal Directory
-    const mealDir = utils.pathResolver({
-      path: `Chefs/${user.id}/meals/${mealExist.id}`,
-    });
-
-    //delete old images
-    const oldPublicIds = mealExist.images.map((img) => img.public_id);
-    await utils.deleteCloudDir({ assetsArray: oldPublicIds, dir: false });
-
-    //upload new images
-    const mealsImages = await utils.uploadFiles({
-      req,
-      options: { folder: mealDir },
-    });
-
-    //set images in meal
-    mealExist.images = mealsImages;
-  }
-
-  //save the updated meal
-  await mealExist.save();
+  const similarMealIds = response.data.similar_meal_ids;
+  const similarMeals = await models.Meal.find({ _id: { $in: similarMealIds } });
+  if (similarMeals.length == 0)
+    return next(new utils.AppError("No similar meals found", 404));
 
   return res.status(200).json({
     success: true,
-    message: "Meal updated successfully",
-    data: {
-      meal: mealExist,
-    },
+    message: "Image processed successfully",
+    data: similarMeals,
   });
 };

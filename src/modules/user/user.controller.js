@@ -8,8 +8,8 @@ import * as middlewares from "../../middleware/index.middlewares.js";
 const userRouter = Router();
 
 userRouter.patch(
-  "/update-profile",
-  middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
+  "/profile",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER),
   middlewares.singleUploader({
     fieldName: "image",
@@ -20,23 +20,23 @@ userRouter.patch(
 );
 
 userRouter.patch(
-  "/update-email",
-  middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
+  "/email",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER),
   middlewares.validateSchema(userValidation.updateEmail),
   asyncHandler(userService.updateEmail)
 );
 
 userRouter.delete(
-  "/delete-account",
-  middlewares.isAuthenticated(process.env.TOKEN_ALL_VALUE),
+  "/account",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER, roles.CHEF),
   asyncHandler(userService.deleteAccount)
 );
 
 userRouter.patch(
-  "/change-password",
-  middlewares.isAuthenticated(process.env.TOKEN_ALL_VALUE),
+  "/password",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER, roles.CHEF),
   middlewares.validateSchema(userValidation.changePassword),
   asyncHandler(userService.changePassword)

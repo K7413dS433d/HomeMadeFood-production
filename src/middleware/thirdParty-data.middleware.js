@@ -110,7 +110,6 @@ export const thirdPartyDataValidation = utils.asyncHandler(
           400
         )
       );
-
     const user = await models.User.findOne({ email: userProfile.email });
 
     let err;

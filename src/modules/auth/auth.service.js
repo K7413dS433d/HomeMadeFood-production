@@ -103,12 +103,11 @@ export const logIn = async (req, res, next) => {
 
 //Email Verification
 export const verifyEmail = async (req, res, next) => {
-  const { otp,email } = req.body;
+  const { otp, email } = req.body;
   const otpModel = await models.OTP.findOne({ email });
-  const user=await models.User.findOne({email})
-  if(!user)  return next(
-    new utils.AppError("user not found ,please sign up!", 404)
-  );
+  const user = await models.User.findOne({ email });
+  if (!user)
+    return next(new utils.AppError("user not found ,please sign up!", 404));
 
   if (!otpModel) {
     return next(
@@ -172,7 +171,7 @@ export const changePassword = async (req, res, next) => {
     user.password = password;
     await user.save();
   }
-  await otpModel.deleteOne({ email });
+await otpModel.deleteOne({ email });
   res.status(200).json({
     success: true,
     massage: "Password Change Successfully",
@@ -202,20 +201,21 @@ export const newAccess = async (req, res, next) => {
 
 //Google Login or signUp
 export const google = async (req, res, next) => {
-  const { accessToken, role,firstName,lastName,phone, ...chefData } = req.body;
+  const { accessToken, role, firstName, lastName, phone, ...chefData } =
+    req.body;
 
   // get third party user
   const userData = req.thirdPartyUser;
   if (!userData.email_verified)
-        return next(new utils.AppError("Email Not Provided", 400));
+    return next(new utils.AppError("Email Not Provided", 400));
   //create user
   let user = await models.User.findOne({ email: userData.email });
 
   if (!user) {
     let data = {
       email: userData.email,
-      firstName:firstName||userData.given_name,
-      lastName: lastName||userData.family_name || userData.given_name,
+      firstName: firstName || userData.given_name,
+      lastName: lastName || userData.family_name || userData.given_name,
       phone,
       authProvider: constants.authProvider.GOOGLE,
       verified: true,
@@ -264,7 +264,8 @@ export const google = async (req, res, next) => {
 
 //facebook login or signUp
 export const facebook = async (req, res, next) => {
-  const { accessToken, role,firstName,lastName,phone,...chefData } = req.body; // Get the token from the frontend
+  const { accessToken, role, firstName, lastName, phone, ...chefData } =
+    req.body; // Get the token from the frontend
   // get third party user
   const userData = req.thirdPartyUser;
 
@@ -272,8 +273,8 @@ export const facebook = async (req, res, next) => {
   if (!user) {
     let data = {
       email: userData.email,
-      firstName: firstName||userData.first_name,
-      lastName: lastName||userData.last_name || userData.first_name,
+      firstName: firstName || userData.first_name,
+      lastName: lastName || userData.last_name || userData.first_name,
       phone,
       authProvider: constants.authProvider.FACEBOOK,
       verified: true,

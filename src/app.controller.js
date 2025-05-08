@@ -33,13 +33,13 @@ const bootstrap = async (app, express) => {
   app.use(`${baseUrl}/cart`, routers.cartItemRouter);
 
   //user router
-  app.use(`${baseUrl}/user`, routers.userRouter);
+  app.use(`${baseUrl}/users`, routers.userRouter);
 
   //location router
-  app.use(`${baseUrl}/location`, routers.locationRouter);
+  app.use(`${baseUrl}/addresses`, routers.locationRouter);
 
   //meal router
-  app.use(`${baseUrl}/meal`, routers.mealRouter);
+  app.use(`${baseUrl}/meals`, routers.mealRouter);
 
   //not found handler
   app.all("*", (req, res) => {

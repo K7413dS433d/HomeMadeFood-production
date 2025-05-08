@@ -13,35 +13,32 @@ const locationRouter = Router();
 
 // apply authenticating and authorization to all end points
 locationRouter.use(
-  isAuthenticated(process.env.TOKEN_USER_VALUE),
+  isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.USER)
 );
 
 //get all user addresses
-locationRouter.get(
-  "/get-user-addresses",
-  asyncHandler(locationService.getAllAddresses)
-);
+locationRouter.get("/", asyncHandler(locationService.getAllAddresses));
 
 //add address
 locationRouter.post(
-  "/add-address",
+  "/",
   validateSchema(locationSchema.addAddress),
   asyncHandler(locationService.addAddress)
 );
 
-//delete address
-locationRouter.delete(
-  "/delete-address/:id",
-  validateSchema(locationSchema.deleteAddress),
-  asyncHandler(locationService.deleteAddress)
-);
-
 //update address
 locationRouter.patch(
-  "/update-address/:id",
+  "/:id",
   validateSchema(locationSchema.updateAddress),
   asyncHandler(locationService.updateAddress)
+);
+
+//delete address
+locationRouter.delete(
+  "/:id",
+  validateSchema(locationSchema.deleteAddress),
+  asyncHandler(locationService.deleteAddress)
 );
 
 export default locationRouter;

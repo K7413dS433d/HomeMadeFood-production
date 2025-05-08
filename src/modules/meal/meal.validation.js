@@ -80,3 +80,10 @@ export const updateMeal = joi
     "file"
   )
   .required();
+
+//similar meals
+export const similarMeals = joi
+  .object({
+    file: fileValidatorType("file"),
+  })
+  .required();

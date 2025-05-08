@@ -6,21 +6,20 @@ const primaryData = {
   firstName: joi.string().required(),
   lastName: joi.string().required(),
   email: joi.string().required().email().pattern(constants.EMAIL_REG),
-  phone: joi.string().when("authProvider", {
-    is: constants.authProvider.SYSTEM,
-    then: joi.required(),
-    otherwise: joi.optional(),
-  }),
-  password: joi.string().when("authProvider", {
-    is: constants.authProvider.SYSTEM,
-    then: joi.required(),
-    otherwise: joi.optional(),
-  }),
+  phone:joi.string().pattern(constants.PHONE_REG).message("Enter valid phone number"),
+  password: joi
+    .string()
+    .required()
+    .pattern(constants.PASSWORD_REG)
+    .message(
+      "password must be 8 characters long and contain at least one lowercase letter,one uppercase letter,numbers,Special_Char"
+    ),
   confirmPassword: joi.string().valid(joi.ref("password")).required().messages({
     "any.only": "Confirm password must match the password.",
     "any.required": "Confirm password is required.",
   }),
   accountLanguage: joi.string().valid(...Object.values(constants.languages)),
+  role: joi.string().valid(...Object.values(constants.roles)),
 };
 
 export const userSignUp = joi
@@ -81,10 +80,6 @@ export const logIn = joi
     password: joi
       .string()
       .required()
-      .pattern(constants.PASSWORD_REG)
-      .message(
-        "password must be 8 characters long and contain at least one lowercase letter,one uppercase letter,numbers,Special_Char"
-      ),
   })
   .required();
 

@@ -120,7 +120,6 @@ export const changePassword = async (req, res, next) => {
 
 //switch mode
 export const switchRole = async (req, res, next) => {
-  
   const { user } = req;
   if (user.role == constants.roles.USER) {
     user.role = constants.roles.CHEF;
@@ -137,7 +136,7 @@ export const switchRole = async (req, res, next) => {
         user.instagramPageLink = req.body.instagramPageLink;
     }
   } else if (user.role == constants.roles.CHEF) {
-    user.role= constants.roles.USER;
+    user.role = constants.roles.USER;
   }
   await user.save();
   return res.status(200).json({
