@@ -93,11 +93,12 @@ export const logIn = async (req, res, next) => {
   }
 
   const tokens = utils.generateTokens(user);
+  const role= user.role;
 
   res.status(200).json({
     massage: "Login Successfully",
     success: true,
-    data: { ...tokens },
+    data: { ...tokens, role },
   });
 };
 
