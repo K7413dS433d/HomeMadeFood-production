@@ -4,7 +4,7 @@ import bootstrap from './src/app.controller.js';
 
 const app=express();
 const port=+process.env.PORT||3000;
-app.get("/", (req, res) => res.send("this is for test "));
+app.get("/", (req, res) => res.send("this is for test khaled"));
 app.use(cors());
 bootstrap(app,express)
 app.listen(port,(error)=>{
