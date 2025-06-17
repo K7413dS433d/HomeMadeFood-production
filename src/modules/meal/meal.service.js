@@ -117,21 +117,43 @@ export const deleteMeal = async (req, res, next) => {
   });
 };
 
-// get all chef meals
+//get all chef meals
 export const getAllChefMeals = async (req, res, next) => {
   const { user } = req;
+  const { page = 1, limit = 5 } = req.query;
 
-  //api features instance
+  // Create query for chef's meals
+  const query = models.Meal.find({ chef: user.id });
+
+  // Count total documents before pagination
+  const totalCount = await models.Meal.countDocuments({ chef: user.id });
+
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+  // Api features instance - using the original implementation
   const apiFeature = new ApiFeatures(
-    models.Meal.find({ chef: user.id }),
+    query.populate({
+      path: "reviews",
+      select: "-meal",
+      populate: { path: "user", select: "firstName lastName image" },
+    }),
     req.query
   ).pagination();
 
-  //call api with feature
+  // Call api with feature
   const allMeals = await apiFeature.mongooseQuery;
-  return res
-    .status(200)
-    .json({ success: true, message: "successfully", data: allMeals });
+  return res.status(200).json({
+    success: true,
+    message: "successfully",
+    data: allMeals,
+    pagination: {
+      currentPage: parseInt(page),
+      limit: parseInt(limit),
+      totalCount,
+      totalPages,
+    },
+  });
 };
 
 //add meal to fav
@@ -196,19 +218,119 @@ export const removeMealFromFav = async (req, res, next) => {
   });
 };
 
-// get all meals
+//get all meals with aggregation
 export const getAllMeals = async (req, res, next) => {
-  //api features instance
-  const apiFeature = new ApiFeatures(
-    models.Meal.find(),
-    req.query
-  ).pagination();
+  const { page = 1, limit = 5, search = "", category, chef } = req.query;
 
-  //call api with feature
-  const allMeals = await apiFeature.mongooseQuery;
-  return res
-    .status(200)
-    .json({ success: true, message: "successfully", data: allMeals });
+  const matchStage = {};
+
+  // Search logic
+  if (search) {
+    matchStage.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // Filter logic
+  if (category) matchStage.category = category;
+  if (chef) matchStage.chef = new Types.ObjectId(chef);
+
+  const pipeline = [
+    {
+      $match: {
+        hiddenStatus: false,
+        ...(search && {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        }),
+        ...(category && { category }),
+        ...(chef && { chef: new Types.ObjectId(chef) }),
+      },
+    },
+    {
+      $lookup: {
+        from: "reviews",
+        let: { mealId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$meal", "$$mealId"] },
+                  { $not: ["$isDeleted"] }, // filter out deleted reviews
+                ],
+              },
+            },
+          },
+        ],
+        as: "reviews",
+      },
+    },
+    {
+      $addFields: {
+        avgRating: {
+          $cond: [
+            { $eq: [{ $size: "$reviews" }, 0] },
+            0,
+            { $avg: "$reviews.rate" },
+          ],
+        },
+      },
+    },
+    {
+      $project: {
+        reviews: 0,
+        password: 0,
+      },
+    },
+    {
+      $skip: (parseInt(page) - 1) * parseInt(limit),
+    },
+    {
+      $limit: parseInt(limit),
+    },
+  ];
+
+  const meals = await models.Meal.aggregate(pipeline);
+
+  // Create a count pipeline to get the total number of meals matching the criteria
+  const countPipeline = [
+    {
+      $match: {
+        hiddenStatus: false,
+        ...(search && {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        }),
+        ...(category && { category }),
+        ...(chef && { chef: new Types.ObjectId(chef) }),
+      },
+    },
+    {
+      $count: "totalCount",
+    },
+  ];
+
+  const countResult = await models.Meal.aggregate(countPipeline);
+  const totalCount = countResult.length > 0 ? countResult[0].totalCount : 0;
+  const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+  return res.status(200).json({
+    success: true,
+    message: "successfully",
+    data: meals,
+    pagination: {
+      currentPage: parseInt(page),
+      limit: parseInt(limit),
+      totalCount,
+      totalPages,
+    },
+  });
 };
 
 export const getSimilarMeals = async (req, res, next) => {
