@@ -1,15 +1,24 @@
-import { model, Schema, Types, Decimal128 } from "mongoose";
+import { model, Schema, Types } from "mongoose";
 import * as constants from "../../../common/constants/index.constant.js";
 import { deleteMealImages } from "./meal.hook.js";
+import { calcAvgRating } from "./meal.method.js";
 
 //schema
 const mealSchema = new Schema(
   {
-    chef: { type: Types.ObjectId, required: true },
+    chef: { type: Types.ObjectId, required: true, ref: "User" },
 
     name: { type: String, required: true },
 
     description: { type: String, required: true },
+
+    hiddenStatus: { type: Boolean, default: true },
+
+    stock: {
+      type: Number,
+      required: true,
+      min: [0, "Stock must be greater than or equal to 0"],
+    },
 
     size: {
       type: String,
@@ -53,8 +62,11 @@ const mealSchema = new Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+//meal avg rate
+mealSchema.virtual("avgRating").get(calcAvgRating);
 
 mealSchema.pre("deleteOne", { document: true, query: false }, deleteMealImages);
 

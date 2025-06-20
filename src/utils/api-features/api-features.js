@@ -33,17 +33,27 @@ class ApiFeatures {
 
     return this;
   }
-  search(field1, field2) {
-    if (this.data?.search) {
-      this.mongooseQuery.find({
-        $or: [
-          { [field1]: { $regex: this.data.search } },
-          { [field2]: { $regex: this.data.search } },
-        ],
-      });
-      return this;
-    }
+  // search(field1, field2) {
+  //   if (this.data?.search) {
+  //     this.mongooseQuery.find({
+  //       $or: [
+  //         { [field1]: { $regex: this.data.search } },
+  //         { [field2]: { $regex: this.data.search } },
+  //       ],
+  //     });
+  //     return this;
+  //   }
 
+  //   return this;
+  // }
+
+  search(...fields) {
+    if (this.data?.search && fields.length > 0) {
+      const orConditions = fields.map((field) => {
+        return { [field]: { $regex: this.data.search, $options: "i" } };
+      });
+      this.mongooseQuery.find({ $or: orConditions });
+    }
     return this;
   }
   filter() {

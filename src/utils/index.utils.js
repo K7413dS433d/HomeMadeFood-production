@@ -32,3 +32,12 @@ export * from "./facebook/get-profile.js";
 
 //cloudinary
 export * from "./cloudinary/index.cloudinary.js";
+
+//distance
+export * from "./distance/calc-distance.js";
+
+//isDelivers
+export * from "./distance/isDelivers.js";
+
+//clcRate
+export * from "./rate-chefs/calc-rate.js";

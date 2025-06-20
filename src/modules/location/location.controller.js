@@ -7,6 +7,7 @@ import { roles } from "../../common/constants/index.constant.js";
 import {
   isAuthenticated,
   isAuthorized,
+  isVerified,
 } from "../../middleware/index.middlewares.js";
 
 const locationRouter = Router();
@@ -14,7 +15,8 @@ const locationRouter = Router();
 // apply authenticating and authorization to all end points
 locationRouter.use(
   isAuthenticated(process.env.BEARER_KEY),
-  isAuthorized(roles.USER)
+  isAuthorized(roles.USER),
+  isVerified
 );
 
 //get all user addresses

@@ -3,6 +3,7 @@ import * as constants from "../../common/constants/index.constant.js";
 import {
   fileValidatorType,
   objectIdSchema,
+  objectIdValidator,
 } from "../../common/validators/index.validators.js";
 
 export const addMeal = joi
@@ -24,6 +25,11 @@ export const addMeal = joi
       .required(),
     price: joi.number().precision(4),
     file: joi.array().items(fileValidatorType("images").required()).required(),
+    stock: joi.number().required().min(0).messages({
+      "number.base": "Stock must be a number",
+      "number.min": "Stock must be greater than or equal to 0",
+    }),
+    hiddenStatus: joi.boolean(),
   })
   .required();
 
@@ -56,6 +62,17 @@ export const getMeals = joi
   })
   .required();
 
+//get all meals
+export const getAllMeals = joi
+  .object({
+    page: joi.number(),
+    limit: joi.number(),
+    search: joi.string(),
+    category: joi.string().valid(...Object.values(constants.mealCategory)),
+    chef: joi.custom(objectIdValidator),
+  })
+  .required();
+
 //update meal
 export const updateMeal = joi
   .object({
@@ -68,6 +85,11 @@ export const updateMeal = joi
     category: joi.string().valid(...Object.values(constants.mealCategory)),
     price: joi.number().precision(4),
     file: joi.array().items(fileValidatorType("images").required()),
+    stock: joi.number().min(0).messages({
+      "number.base": "Stock must be a number",
+      "number.min": "Stock must be greater than or equal to 0",
+    }),
+    hiddenStatus: joi.boolean(),
   })
   .or(
     "name",
@@ -77,7 +99,9 @@ export const updateMeal = joi
     "tags",
     "category",
     "price",
-    "file"
+    "file",
+    "hiddenStatus",
+    "stock"
   )
   .required();
 

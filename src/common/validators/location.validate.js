@@ -1,10 +1,12 @@
 import joi from "joi";
 
-export const longitudeValidator = (value) => Number(value) >= -180 && Number(value) <= 180;
+export const longitudeValidator = (value) =>
+  Number(value) >= -180 && Number(value) <= 180;
 
-export const latitudeValidator = (value) => Number(value) >= -90 && Number(value) <= 90;
+export const latitudeValidator = (value) =>
+  Number(value) >= -90 && Number(value) <= 90;
 
-const locationValidator = (callback) => {
+export const locationValidator = (callback) => {
   return (value, helper) => {
     if (callback(value)) return true;
     const message = `invalid ${callback.name.split("V")[0]}`;
@@ -23,5 +25,3 @@ export const locationSchema = joi.object({
     .custom(locationValidator(latitudeValidator))
     .required(),
 });
-
-

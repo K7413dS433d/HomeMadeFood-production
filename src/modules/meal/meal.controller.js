@@ -9,6 +9,7 @@ import {
   multiUploader,
   singleUploader,
   validateSchema,
+  isVerified,
 } from "../../middleware/index.middlewares.js";
 
 const mealRouter = Router();
@@ -18,6 +19,7 @@ mealRouter.post(
   "/",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF),
+  isVerified,
   multiUploader({ fieldName: "images", allowedExtensions: extensions.IMAGES }),
   validateSchema(mealSchema.addMeal),
   asyncHandler(mealService.addMeal)
@@ -28,6 +30,7 @@ mealRouter.patch(
   "/:id",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF),
+  isVerified,
   multiUploader({ fieldName: "images", allowedExtensions: extensions.IMAGES }),
   validateSchema(mealSchema.updateMeal),
   asyncHandler(mealService.updateMeal)
@@ -38,6 +41,7 @@ mealRouter.delete(
   "/:id",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF),
+  isVerified,
   validateSchema(mealSchema.deleteMeal),
   asyncHandler(mealService.deleteMeal)
 );
@@ -47,6 +51,7 @@ mealRouter.get(
   "/chef",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF),
+  isVerified,
   validateSchema(mealSchema.getMeals),
   asyncHandler(mealService.getAllChefMeals)
 );
@@ -56,23 +61,37 @@ mealRouter.post(
   "/favorites/:id",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF, roles.USER),
+  isVerified,
   validateSchema(mealSchema.addMealToFav),
   asyncHandler(mealService.addMealToFav)
 );
 
+// get favorite meals
+mealRouter.get(
+  "/favorites",
+  isAuthenticated(process.env.BEARER_KEY),
+  isAuthorized(roles.CHEF, roles.USER),
+  isVerified,
+  asyncHandler(mealService.getFavoriteMeals)
+);
+
+// remove meal from fav
 mealRouter.delete(
   "/favorites/:id",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF, roles.USER),
+  isVerified,
   validateSchema(mealSchema.removeMealFromFav),
   asyncHandler(mealService.removeMealFromFav)
 );
 
+// get all meals
 mealRouter.get(
   "/",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.CHEF, roles.USER),
-  validateSchema(mealSchema.getMeals),
+  isVerified,
+  validateSchema(mealSchema.getAllMeals),
   asyncHandler(mealService.getAllMeals)
 );
 
@@ -80,6 +99,7 @@ mealRouter.post(
   "/similar",
   isAuthenticated(process.env.TOKEN_USER_VALUE),
   isAuthorized(roles.CHEF, roles.USER),
+  isVerified,
   singleUploader({ fieldName: "file", allowedExtensions: extensions.IMAGES }),
   validateSchema(mealSchema.getMeals),
   asyncHandler(mealService.getSimilarMeals)
