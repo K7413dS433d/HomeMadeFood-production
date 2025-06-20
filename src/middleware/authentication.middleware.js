@@ -14,7 +14,6 @@ export const isAuthenticated = (bearerKey) => {
     if (!auth.startsWith(bearerKey)) {
       return next(new AppError("Invalid bearer token provided", 401));
     }
-
     const [_, token] = auth.split(" ");
     const decodedToken = verifyToken({ token });
 

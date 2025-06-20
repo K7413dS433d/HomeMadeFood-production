@@ -2,9 +2,10 @@ import { image } from "../../common/constants/index.constant.js";
 import models from "./../../DB/models/index.models.js";
 import * as utils from "./../../utils/index.utils.js";
 import * as constants from "./../../common/constants/index.constant.js";
+import ApiFeatures from "../../utils/api-features/api-features.js";
 
-//update profile
-export const updateProfile = async (req, res, next) => {
+//update profile for user
+export const updateUserProfile = async (req, res, next) => {
   const { user } = req;
 
   const { firstName, lastName, language, phone } = req.body;
@@ -20,6 +21,44 @@ export const updateProfile = async (req, res, next) => {
   if (req.file) {
     //folder to save profile picture
     const profileDir = utils.pathResolver({ path: `Users/${user.id}` });
+
+    //upload file
+    const image = await utils.uploadFile({
+      req,
+      options: { folder: profileDir, fileName: "profilePic" },
+    });
+
+    //add image
+    user.image = image;
+  }
+
+  //save user
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile updated successfully",
+    data: { user },
+  });
+};
+
+//update profile for chef
+export const updateChefProfile = async (req, res, next) => {
+  const { user } = req;
+
+  const { displayName, description, kitchenAddress, openSchedule } = req.body;
+
+  if (displayName) user.displayName = displayName;
+
+  if (description) user.description = description;
+
+  if (kitchenAddress) user.kitchenAddress = kitchenAddress;
+
+  if (openSchedule) user.openSchedule = openSchedule;
+
+  if (req.file) {
+    //folder to save profile picture
+    const profileDir = utils.pathResolver({ path: `Chefs/${user.id}` });
 
     //upload file
     const image = await utils.uploadFile({
@@ -75,7 +114,7 @@ export const deleteAccount = async (req, res, next) => {
   if (user.deletedAt)
     return next(
       new utils.AppError(
-        "Account already deleted login in 30 days to restore it ",
+        "Account already deleted login in 30 days to restore it",
         409
       )
     );
@@ -83,7 +122,8 @@ export const deleteAccount = async (req, res, next) => {
   user.deletedAt = Date.now();
 
   //delete account image
-  await utils.deleteCloudDir({ assetsArray: [user.image.public_id] });
+  if (user.image.public_id != image.public_id)
+    await utils.deleteCloudDir({ assetsArray: [user.image.public_id] });
 
   //set account image to default
   user.image.public_id = image.public_id;
@@ -143,5 +183,124 @@ export const switchRole = async (req, res, next) => {
     success: true,
     message: "Role changed successfully",
     data: { user },
+  });
+};
+
+//get your profile
+export const getProfile = async (req, res, next) => {
+  const { id } = req.user;
+  const chef = await models.User.findById(id).select(
+    "-password -authProvider -deletedAt -verified -role -termsAccepted"
+  );
+
+  return res
+    .status(200)
+    .json({ success: true, message: "successfully", data: chef });
+};
+
+//get chef profile
+export const getChefProfile = async (req, res, next) => {
+  const { chefId } = req.params;
+
+  const chef = await models.User.findById(chefId).select(
+    "-password -phone -authProvider -deletedAt -verified -termsAccepted -kitchenAddress"
+  );
+
+  //check if chef is exist
+  if (!chef) return next(new utils.AppError("Chef not found", 404));
+
+  if (chef.role != constants.roles.CHEF)
+    return next(
+      new utils.AppError("Access denied cannot get user profile", 400)
+    );
+  chef.role = undefined;
+
+  return res
+    .status(200)
+    .json({ success: true, message: "successfully", data: chef });
+};
+
+//follow unfollow chef
+export const chefFollowing = async (req, res, next) => {
+  const { user } = req;
+  const { chefId } = req.params;
+
+  //check if chef id not equal to user id
+  if (user.id == chefId)
+    return next(new utils.AppError("You cannot follow yourself", 409));
+
+  //check if the chef is exist
+  const chef = await models.User.findById(chefId);
+  if (!chef) return next(new utils.AppError("Chef not found", 404));
+
+  //check if the chef is a chef
+  if (chef.role != constants.roles.CHEF)
+    return next(
+      new utils.AppError("Currently this is account in user mode", 404)
+    );
+
+  let message = "";
+  //check if the chef is already in favorites
+  if (user.followedChefs.includes(chefId)) {
+    //remove chef from favorites
+    user.followedChefs = user.followedChefs.filter(
+      (chef) => chef.toString() != chefId
+    );
+    message = "Chef removed from following successfully";
+  } else {
+    //add chef to following
+    user.followedChefs.push(chefId);
+    message = "Chef followed successfully";
+  }
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message,
+    data: {
+      followedChefs: user.followedChefs,
+    },
+  });
+};
+
+//get user following
+export const getUserFollowing = async (req, res, next) => {
+  const { user } = req;
+
+  //get all followed chefs
+  const chefs = await models.User.find({
+    _id: { $in: user.followedChefs },
+  }).select(
+    "-password -phone -authProvider -deletedAt -verified -role -termsAccepted"
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "successfully",
+    data: {
+      chefs,
+    },
+  });
+};
+
+export const getAllChefs = async (req, res, next) => {
+  const userId = req.user.id;
+  const apiFeature = new ApiFeatures(
+    models.User.find({ role: constants.roles.CHEF }).select(
+      "description image displayName firstName lastName kitchenAddress"
+    ),
+    req.query
+  )
+    .search("firstName", "lastName", "displayName", "description")
+    .pagination()
+    .fields();
+  const allChefs = await apiFeature.mongooseQuery;
+  const chefsWithDelivery = await utils.isDelivers({ userId, allChefs });
+  // const avgRating = await utils.calcRate({allChefs})
+  res.status(200).json({
+    success: true,
+    message: "successfully",
+    data: chefsWithDelivery,
   });
 };

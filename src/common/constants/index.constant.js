@@ -17,13 +17,16 @@ export * from "./meal.constant.js";
 export * from "./images.constants.js";
 
 // Order
-export * from './order.constant.js'
+export * from "./order.constant.js";
 
 // payment method
-export * from './payment.constant.js'
+export * from "./payment.constant.js";
 
 //files extensions
 export * from "./file-extensions.constants.js";
 
 // days
 export * from "./days.constants.js";
+
+//distance
+export * from "./delivers-dist.constant.js";

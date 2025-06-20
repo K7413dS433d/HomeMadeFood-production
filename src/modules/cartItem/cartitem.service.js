@@ -1,6 +1,7 @@
 import models from '../../DB/models/index.models.js'
 import * as utils from "../../utils/index.utils.js"
 
+// add a meal to the cart
 export const addMealToCart = async (req, res, next) => {
     // get data
     let { chef, meal } = req.body
@@ -9,9 +10,19 @@ export const addMealToCart = async (req, res, next) => {
     const mealExist = await models.Meal.findById(meal.mealId)
     if (!mealExist) return next(new utils.AppError("Meal is not found.", 404))
 
+    // check if stock is not empty
+    if (mealExist.stock <= 0) {
+        return next(new utils.AppError("Meal is out of stock.", 400));
+    }
+
     // check chef existence
-    // const chefExist = await models.Chef.findById(chef)
-    // if(!chefExist) return next(new utils.AppError("Chef is not found.", 404))
+    const chefExist = await models.User.findById(chef);
+    if (!chefExist) return next(new utils.AppError("Chef is not found.", 404));
+
+    // check if the user is actually a chef
+    if (chefExist.role !== "chef") {
+        return next(new utils.AppError("User is not a chef.", 400));
+    }
 
     // check if this meal related to this chef 
     if (mealExist.chef.toString() !== chef.toString()) return next(new utils.AppError("Meal does not belong to this chef.", 400))
@@ -20,8 +31,8 @@ export const addMealToCart = async (req, res, next) => {
     meal.price = mealExist.price
 
     // search for a cartitem of this user with this chef
-    const cartItemExist = await models.CartItem.findOne({ user: req.user._id, chef })
-    if (!cartItemExist) {
+    const cartItemExist = await models.CartItem.findOne({ user: req.user._id, chef, isCheckedOut: false})
+    if (!cartItemExist || cartItemExist.isCheckedOut) {
         // create new cartitem
         const newCartItem = await models.CartItem.create({ user: req.user._id, chef, meals: [meal] })
         if (!newCartItem) return next(new utils.AppError("Failed to create cart item.", 500));
@@ -55,6 +66,7 @@ export const addMealToCart = async (req, res, next) => {
     return res.status(201).json({ success: true, message: "Meal added successfully to the cart.", data: cartItemExist })
 }
 
+// delete a meal from the cart item
 export const deleteMeal = async (req, res, next) => {
     // get data
     const { cartItemId, mealId } = req.params
@@ -62,6 +74,11 @@ export const deleteMeal = async (req, res, next) => {
     // check cartitem existence
     const cartItemExist = await models.CartItem.findById(cartItemId)
     if (!cartItemExist) return next(new utils.AppError("This cart item is not found.", 404))
+    
+    // check if the cart item is checked out
+    if (cartItemExist.isCheckedOut) {
+        return next(new utils.AppError("This cart item is already checked out.", 400));
+    }    
 
     // check meal exist in the cartitem
     const mealIndex = cartItemExist.meals.findIndex(ele => ele.mealId.toString() === mealId.toString())
@@ -70,11 +87,8 @@ export const deleteMeal = async (req, res, next) => {
     // delete meal from the cart
     cartItemExist.meals.splice(mealIndex, 1)
 
-    // update the total price
-    cartItemExist.totalPrice = cartItemExist.meals.reduce((sum, m) => sum + (m.quantity * m.price), 0);
-
     // check if cartitem is empty to delete it from the cart
-    const cart = await models.Cart.findOne({ user: req.user._id }).populate({ path: 'cartItems', select: 'meals totalPrice chef' }).select('-isDeleted -createdAt -updatedAt -__v')
+    const cart = await models.Cart.findOne({ user: req.user._id })
     if (!cart) return next(new utils.AppError("Cart is not found.", 404))
     if (cartItemExist.meals.length == 0) {
         // delete cartitem from cart
@@ -82,15 +96,32 @@ export const deleteMeal = async (req, res, next) => {
 
         //delete cart item
         await cartItemExist.deleteOne()
+
+        // save the cart
+        await cart.save();
     }
-    await Promise.all([cartItemExist.save(), cart.save()]);
+    else {
+        // update total price
+        await models.CartItem.updateOne(
+            { _id: cartItemId },
+            {
+                $set: {
+                    meals: cartItemExist.meals,
+                    totalPrice: cartItemExist.meals.reduce((sum, m) => sum + m.quantity * m.price, 0)
+                }
+            }, { new: true }
+        );
+        await cart.save()
+    };
 
-    const updatedCart = await models.Cart.findById(cart._id)
-        .populate({ path: 'cartItems', select: 'meals totalPrice chef' })
-        .select('-isDeleted -createdAt -updatedAt -__v');
-    return res.status(200).json({ success: true, message: "Meal is deleted successfully, now your cart contains ", data: updatedCart.cartItems.length ? updatedCart : [] })
+    const updatedCartItem = await models.CartItem.findById(cartItemId)
+        .populate({ path: 'meals.mealId', select: 'name images description' })
+        .populate({ path: 'chef', select: 'firstName lastName image' })
+        .select('-isDeleted -createdAt -updatedAt -__v').lean()
+    
+    return res.status(200).json({ success: true, message: "Meal is deleted successfully, now your cart contains ", data: updatedCartItem })
 }
-
+// clear the cart (delete all cart items of the user)
 export const clearCart = async (req, res, next) => {
     const cart = await models.Cart.findOne({ user: req.user._id })
     if (!cart) return next(new utils.AppError("Cart not found.", 404));
@@ -107,6 +138,7 @@ export const clearCart = async (req, res, next) => {
     return res.status(200).json({ success: true, message: "Cart cleared successfully.", data: [] })
 }
 
+// get all cart items of the user
 export const getCartItems = async (req, res, next) => {
     const cart = await models.Cart.findOne({ user: req.user._id })
         .populate({
@@ -122,16 +154,37 @@ export const getCartItems = async (req, res, next) => {
     return res.status(200).json({ success: true, message: "Cart items retrieved successfully.", data: cart.cartItems });
 }
 
+// get a specific cart item by id
+export const getCartItem = async (req, res, next) => {
+   const {cartItemId} = req.params
+
+    const cartItem = await models.CartItem.findById(cartItemId)
+        .populate({ path: 'meals.mealId', select: 'name images description' })
+        .populate({ path: 'chef', select: 'firstName lastName image'})
+        .select('-isDeleted -createdAt -updatedAt -__v').lean();
+    
+    if (!cartItem) return next(new utils.AppError("Cart item not found.", 404));
+
+    return res.status(200).json({ success: true, message: "Cart item retrieved successfully.", data: cartItem });
+}
+
+// update cart item (update quantity of meal or delete meal if quantity is 0)
 export const updateCartItem = async (req, res, next) => {
     const { cartItemId, mealId } = req.params
     const { quantity } = req.body
 
     // check cartitem existence
-    const cartItemExist = await models.CartItem.findById(cartItemId)
-    if (!cartItemExist) return next(new utils.AppError("This cart item is not found.", 404))
+    const cartItem = await models.CartItem.findById(cartItemId)
+    
+    if (!cartItem) return next(new utils.AppError("Cart item not found.", 404));
+
+    /// check if the cart item is checked out
+    if( cartItem.isCheckedOut) {
+        return next(new utils.AppError("This cart item is already checked out.", 400));
+    }
 
     // check meal existence in cart item.
-    const mealIndex = cartItemExist.meals.findIndex(ele => ele.mealId.toString() === mealId.toString())
+    const mealIndex = cartItem.meals.findIndex(ele => ele.mealId.toString() === mealId.toString());
     if (mealIndex === -1) return next(new utils.AppError("Meal is not found in the cart.", 404))
 
     // get user cart
@@ -140,24 +193,54 @@ export const updateCartItem = async (req, res, next) => {
 
     // quantity (quantity == 0 ? delete meal : update quantity)
     if (quantity === 0) {
-        cartItemExist.meals.splice(mealIndex, 1)
-        if (cartItemExist.meals.length == 0) {
+        cartItem.meals.splice(mealIndex, 1)
+        if (cartItem.meals.length == 0) {
             // delete cartitem from cart
-            cart.cartItems.pull(cartItemExist._id);
+            cart.cartItems.pull(cartItem._id);
 
             //delete cart item
-            await cartItemExist.deleteOne()
+            await cartItem.deleteOne()
+            await cart.save();
         }
     }
-    else cartItemExist.meals[mealIndex].quantity = quantity
+    else {
+        cartItem.meals[mealIndex].quantity = quantity
+        // update total price
+        await models.CartItem.updateOne(
+            { _id: cartItemId },
+            {
+                $set: {
+                    meals: cartItem.meals,
+                    totalPrice: cartItem.meals.reduce((sum, m) => sum + m.quantity * m.price,0)
+                }
+            },{new: true}
+        );
+        await cart.save()
+    }
+        const updatedCartItem = await models.CartItem.findById(cartItemId)
+        .populate({ path: 'meals.mealId', select: 'name images description' })
+        .populate({ path: 'chef', select: 'firstName lastName image' })
+        .select('-isDeleted -createdAt -updatedAt -__v').lean()
 
-    // update total price
-    cartItemExist.totalPrice = cartItemExist.meals.reduce((sum, m) => sum + (m.quantity * m.price), 0);
-    await Promise.all([cartItemExist.save(), cart.save()]);
+    return res.status(200).json({ success: true, message: "Cart item updated successfully.", data: updatedCartItem })
+}
 
-    const updatedCart = await models.Cart.findById(cart._id)
-        .populate({ path: 'cartItems', select: 'meals totalPrice chef' })
-        .select('-isDeleted -createdAt -updatedAt -__v');
+// checkout cart item
+export const checkoutCartItem = async (req, res, next) => {
+    const { cartItemId } = req.params
 
-    return res.status(200).json({ success: true, message: "Cart updated successfully.", data: updatedCart.cartItems.length ? updatedCart : [] })
+    // check cartitem existence
+    const cartItemExist = await models.CartItem.findById(cartItemId)
+    if (!cartItemExist) return next(new utils.AppError("This cart item is not found.", 404))
+
+    // check if the cart item is already checked out
+    if (cartItemExist.isCheckedOut) {
+        return next(new utils.AppError("This cart item is already checked out.", 400));
+    }
+
+    // mark the cart item as checked out
+    cartItemExist.isCheckedOut = true;
+    await cartItemExist.save();
+
+    return res.status(200).json({ success: true, message: "Cart item checked out successfully.", data: cartItemExist });
 }

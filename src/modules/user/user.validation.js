@@ -1,6 +1,12 @@
 import joi from "joi";
 import * as constants from "../../common/constants/index.constant.js";
-import { fileValidatorType } from "../../common/validators/index.validators.js";
+import {
+  fileValidatorType,
+  latitudeValidator,
+  locationValidator,
+  longitudeValidator,
+  objectIdSchema,
+} from "../../common/validators/index.validators.js";
 
 //update user
 export const updateProfile = joi
@@ -23,8 +29,14 @@ export const updateEmail = joi
   })
   .required();
 
-//update password
+//get user profile
+export const chefSchema = joi
+  .object({
+    chefId: objectIdSchema,
+  })
+  .required();
 
+//update password
 export const changePassword = joi
   .object({
     oldPassword: joi.string().required(),
@@ -36,5 +48,16 @@ export const changePassword = joi
       )
       .required(),
     confirmPassword: joi.string().valid(joi.ref("newPassword")).required(),
+  })
+  .required();
+
+//get all chefs
+export const getAllChefs = joi
+  .object({
+    userLatitude: joi.custom(locationValidator(latitudeValidator)),
+    userLongitude: joi.custom(locationValidator(longitudeValidator)),
+    page: joi.number(),
+    limit: joi.number(),
+    search: joi.string(),
   })
   .required();

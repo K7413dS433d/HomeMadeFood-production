@@ -93,7 +93,7 @@ export const logIn = async (req, res, next) => {
   }
 
   const tokens = utils.generateTokens(user);
-  const role= user.role;
+  const role = user.role;
 
   res.status(200).json({
     massage: "Login Successfully",
@@ -172,7 +172,7 @@ export const changePassword = async (req, res, next) => {
     user.password = password;
     await user.save();
   }
-await otpModel.deleteOne({ email });
+  await otpModel.deleteOne({ email });
   res.status(200).json({
     success: true,
     massage: "Password Change Successfully",

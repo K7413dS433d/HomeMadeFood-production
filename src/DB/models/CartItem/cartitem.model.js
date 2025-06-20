@@ -10,7 +10,7 @@ const cartItemSchema = new Schema({
     },
     chef: {
         type: Schema.ObjectId,
-        ref: 'Chef',
+        ref: 'User',
         required: [true, "Chef is required."]
     },
     meals: [

@@ -8,7 +8,6 @@ const locationSchema = new Schema(
     addressName: {
       type: String,
       required: true,
-      unique: [true, "Address name already exist try different name"],
       minLength: [2, "Address name must be  2-15 characters."],
       maxLength: [30, "Address name must be  2-15 characters."],
     },

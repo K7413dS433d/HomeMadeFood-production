@@ -3,6 +3,7 @@ import FormData from "form-data";
 import models from "./../../DB/models/index.models.js";
 import ApiFeatures from "../../utils/api-features/api-features.js";
 import * as utils from "../../utils/index.utils.js";
+import { Types } from "mongoose";
 
 //new meal
 export const addMeal = async (req, res, next) => {
@@ -41,11 +42,22 @@ export const addMeal = async (req, res, next) => {
 export const updateMeal = async (req, res, next) => {
   const { user } = req;
   const { id } = req.params;
-  const { name, description, size, spiceLevel, tags, category, price } =
-    req.body;
+  const {
+    name,
+    description,
+    size,
+    spiceLevel,
+    tags,
+    category,
+    price,
+    hiddenStatus,
+    stock,
+  } = req.body;
 
   //check meal exist
-  const mealExist = await models.Meal.findById(id);
+  const mealExist = await models.Meal.findById(id).select(
+    "-reviews -favoriteBy"
+  );
   if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
 
   //check authorized chef
@@ -60,6 +72,11 @@ export const updateMeal = async (req, res, next) => {
   if (tags) mealExist.tags = tags;
   if (category) mealExist.category = category;
   if (price) mealExist.price = price;
+  if (hiddenStatus != undefined) mealExist.hiddenStatus = hiddenStatus;
+  if (stock != undefined) {
+    mealExist.stock = stock;
+    if (stock <= 0) mealExist.hiddenStatus = true;
+  }
   if (req.files.length) {
     // chef meal Directory
     const mealDir = utils.pathResolver({
@@ -135,6 +152,7 @@ export const getAllChefMeals = async (req, res, next) => {
   const apiFeature = new ApiFeatures(
     query.populate({
       path: "reviews",
+      match: { isDeleted: { $ne: true } }, // Only populate non-deleted reviews
       select: "-meal",
       populate: { path: "user", select: "firstName lastName image" },
     }),
@@ -184,6 +202,29 @@ export const addMealToFav = async (req, res, next) => {
   });
 };
 
+//get favorite meals
+export const getFavoriteMeals = async (req, res, next) => {
+  const { user } = req;
+  const favMeals = await models.Meal.find({
+    _id: { $in: user.favoriteMeals },
+  })
+    .populate([
+      { path: "chef", select: "firstName lastName image" },
+      {
+        path: "reviews",
+        select: "-meal",
+        populate: { path: "user", select: "firstName lastName image" },
+      },
+    ])
+    .select("-favoriteBy -id");
+
+  return res.status(200).json({
+    success: true,
+    message: "Favorite meals retrieved successfully",
+    data: favMeals,
+  });
+};
+
 // remove meal from fav
 export const removeMealFromFav = async (req, res, next) => {
   const { id } = req.params;
@@ -217,6 +258,32 @@ export const removeMealFromFav = async (req, res, next) => {
     message: `Meal ${mealExist.name} removed from your favorites`,
   });
 };
+
+//! get all meals without aggregation
+// export const getAllMeals = async (req, res, next) => {
+//   //api features instance
+//   const apiFeature = new ApiFeatures(
+//     models.Meal.find().populate({ path: "reviews", select: "rate" }),
+//     req.query
+//   )
+//     .search("name", "description")
+//     .filter("category", "chef")
+//     .pagination();
+
+//   //call api with feature
+//   const allMeals = await apiFeature.mongooseQuery.select("-password");
+//     allMeals = allMeals.map((meal) => {
+//     const obj = meal.toObject(); // to trigger virtuals
+//     delete obj.reviews;
+//     return obj;
+//   });
+
+//   return res
+//     .status(200)
+//     .json({ success: true, message: "successfully", data: allMeals });
+// };
+
+//!get all meals aggregation
 
 //get all meals with aggregation
 export const getAllMeals = async (req, res, next) => {
