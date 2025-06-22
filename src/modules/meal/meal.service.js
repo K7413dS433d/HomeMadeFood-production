@@ -42,17 +42,7 @@ export const addMeal = async (req, res, next) => {
 export const updateMeal = async (req, res, next) => {
   const { user } = req;
   const { id } = req.params;
-  const {
-    name,
-    description,
-    size,
-    spiceLevel,
-    tags,
-    category,
-    price,
-    hiddenStatus,
-    stock,
-  } = req.body;
+  const { name, description, category, price, hiddenStatus, stock } = req.body;
 
   //check meal exist
   const mealExist = await models.Meal.findById(id).select(
@@ -67,9 +57,6 @@ export const updateMeal = async (req, res, next) => {
   //check for updates
   if (name) mealExist.name = name;
   if (description) mealExist.description = description;
-  if (size) mealExist.size = size;
-  if (spiceLevel) mealExist.spiceLevel = spiceLevel;
-  if (tags) mealExist.tags = tags;
   if (category) mealExist.category = category;
   if (price) mealExist.price = price;
   if (hiddenStatus != undefined) mealExist.hiddenStatus = hiddenStatus;

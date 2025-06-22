@@ -7,7 +7,7 @@ export const addReview = async (req, res, next) => {
     // get data.
     const { mealId } = req.params
     const { comment, rate } = req.body
-    
+
     // check meal existence.
     const mealExist = await models.Meal.findById(mealId).lean()
     if (!mealExist) return next(new utils.AppError("Meal is not found.", 404))
@@ -26,7 +26,7 @@ export const addReview = async (req, res, next) => {
     if (!orderExist || !mealExistInOrder) return next(new utils.AppError("You must have purchased this product and it must be deliverd to you to leave a review.", 403))
 
     // check if user has reviewed on this  meal before.
-    const reviewExist = await models.Review.findOneAndUpdate({ user: req.user._id, meal: mealId }, { comment, rate }, { new: true })
+    const reviewExist = await models.Review.findOneAndUpdate({ user: req.user._id, meal: mealId, isDeleted: false }, { comment, rate }, { new: true })
     if (!reviewExist) {
         // create new review
         const review = await models.Review.create({ user: req.user._id, meal: mealId, comment, rate })
@@ -47,9 +47,9 @@ export const deleteReview = async (req, res, next) => {
     // check review existence.
     const reviewExist = await models.Review.findById(reviewId)
     if (!reviewExist) return next(new utils.AppError("Review is not found.", 404))
-    
+
     // check if user own this review
-    if(reviewExist.user.toString() != req.user._id.toString()) return next(new utils.AppError("Unauthorized", 401))    
+    if (reviewExist.user.toString() != req.user._id.toString()) return next(new utils.AppError("Unauthorized", 401))
 
     // Check if review is already deleted.
     if (reviewExist.isDeleted) {
@@ -85,18 +85,42 @@ export const getUserReview = async (req, res, next) => {
     }
     return res.status(200).json({ success: true, message: "User Review is ", data: reviewExist })
 }
-// only the admin can get all reviews.
-export const getAllReviews = async (req, res, next) => {
-    const { rate, isDeleted, user } = req.query
+// user can get all meal reviews.
+export const getMealReviews = async (req, res, next) => {
+    const { mealId } = req.params;
 
-    let filter = {}
-    if (rate) filter.rate = rate
-    if (isDeleted) filter.isDeleted = isDeleted
-    if (user) filter.user = user
+    const mealDoc = await models.Meal.findById(mealId)
+        .populate({
+            path: "reviews",
+            match: { isDeleted: false },
+            select: "rate",
+        })
+        .select("name images");
 
-    const reviews = await models.Review.find(filter)
-    if (reviews.length == 0) return next(new utils.AppError("There are no existing reviews.", 404))
+    if (!mealDoc) {
+        return next(new utils.AppError("Meal not found.", 404));
+    }
 
-    return res.status(200).json({ success: true, message: "All reviews are ", data: reviews })
+    const meal = mealDoc.toObject({ virtuals: true });
 
-}
+    delete meal.reviews;
+
+    const reviews = await models.Review.find({ meal: mealId, isDeleted: false })
+        .populate({
+            path: "user",
+            select: "firstName lastName image",
+        })
+        .sort({ createdAt: -1 })
+        .select("-isDeleted -deletedAt -__v -meal");
+
+    return res.status(200).json({
+        success: true,
+        message: "Meal reviews retrieved successfully.",
+        results: reviews.length,
+        data: {
+            meal,
+            reviews,
+        },
+    });
+};
+

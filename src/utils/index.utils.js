@@ -34,10 +34,12 @@ export * from "./facebook/get-profile.js";
 export * from "./cloudinary/index.cloudinary.js";
 
 //distance
-export * from "./distance/calc-distance.js";
+export * from "./chefs/distance/calc-distance.js";
 
 //isDelivers
-export * from "./distance/isDelivers.js";
+export * from "./chefs/distance/isDelivers.js";
 
 //clcRate
-export * from "./rate-chefs/calc-rate.js";
+export * from "./chefs/rate-chefs/calc-rate.js";
+//mergeChefs
+export * from "./chefs/merge-chef-data.js";

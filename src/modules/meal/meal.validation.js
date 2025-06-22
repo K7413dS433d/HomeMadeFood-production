@@ -10,22 +10,13 @@ export const addMeal = joi
   .object({
     name: joi.string().required(),
     description: joi.string().required(),
-    size: joi
-      .string()
-      .valid(...Object.values(constants.mealSize))
-      .required(),
-    spiceLevel: joi
-      .string()
-      .valid(...Object.values(constants.mealSpiceLevel))
-      .required(),
-    tags: joi.string(),
     category: joi
       .string()
       .valid(...Object.values(constants.mealCategory))
       .required(),
     price: joi.number().precision(4),
     file: joi.array().items(fileValidatorType("images").required()).required(),
-    stock: joi.number().required().min(0).messages({
+    stock: joi.number().integer().required().min(0).messages({
       "number.base": "Stock must be a number",
       "number.min": "Stock must be greater than or equal to 0",
     }),
@@ -79,13 +70,10 @@ export const updateMeal = joi
     id: objectIdSchema.required(),
     name: joi.string(),
     description: joi.string(),
-    size: joi.string().valid(...Object.values(constants.mealSize)),
-    spiceLevel: joi.string().valid(...Object.values(constants.mealSpiceLevel)),
-    tags: joi.string(),
     category: joi.string().valid(...Object.values(constants.mealCategory)),
     price: joi.number().precision(4),
     file: joi.array().items(fileValidatorType("images").required()),
-    stock: joi.number().min(0).messages({
+    stock: joi.number().integer().min(0).messages({
       "number.base": "Stock must be a number",
       "number.min": "Stock must be greater than or equal to 0",
     }),
@@ -94,9 +82,6 @@ export const updateMeal = joi
   .or(
     "name",
     "description",
-    "size",
-    "spiceLevel",
-    "tags",
     "category",
     "price",
     "file",

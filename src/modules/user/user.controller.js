@@ -7,8 +7,8 @@ import * as middlewares from "../../middleware/index.middlewares.js";
 
 const userRouter = Router();
 
-//update your profile
-userRouter.patch(
+//update profile for user
+userRouter.put(
   "/user/profile",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
   middlewares.isAuthorized(roles.USER),
@@ -17,8 +17,23 @@ userRouter.patch(
     fieldName: "image",
     allowedExtensions: extensions.IMAGES,
   }),
-  middlewares.validateSchema(userValidation.updateProfile),
+  middlewares.validateSchema(userValidation.updateUserProfile),
   asyncHandler(userService.updateUserProfile)
+);
+
+//update profile for chef
+userRouter.put(
+  "/chef/profile",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.CHEF),
+  middlewares.isVerified,
+  middlewares.singleUploader({
+    fieldName: "image",
+    allowedExtensions: extensions.IMAGES,
+  }),
+  middlewares.formDataParser("openSchedule", "kitchenAddress", "paymentMethod"),
+  middlewares.validateSchema(userValidation.updateChefProfile),
+  asyncHandler(userService.updateChefProfile)
 );
 
 //update your email, require confirmation
@@ -80,7 +95,7 @@ userRouter.get(
 userRouter.post(
   "/following/chefs/:chefId",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
-  middlewares.isAuthorized(roles.USER, roles.CHEF),
+  middlewares.isAuthorized(roles.USER),
   middlewares.isVerified,
   middlewares.validateSchema(userValidation.chefSchema),
   asyncHandler(userService.chefFollowing)
@@ -90,7 +105,7 @@ userRouter.post(
 userRouter.get(
   "/following/chefs",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
-  middlewares.isAuthorized(roles.USER, roles.CHEF),
+  middlewares.isAuthorized(roles.USER),
   middlewares.isVerified,
   asyncHandler(userService.getUserFollowing)
 );
@@ -99,7 +114,7 @@ userRouter.get(
 userRouter.get(
   "/chefs",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
-  middlewares.isAuthorized(roles.USER, roles.CHEF),
+  middlewares.isAuthorized(roles.USER),
   middlewares.isVerified,
   middlewares.validateSchema(userValidation.getAllChefs),
   asyncHandler(userService.getAllChefs)
