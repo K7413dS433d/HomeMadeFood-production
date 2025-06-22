@@ -80,6 +80,24 @@ export const logIn = async (req, res, next) => {
   if (!user.verified) {
     return next(new utils.AppError("Please verify your email", 401));
   }
+  if (user.deletedAt) {
+    const now = new Date();
+    // Calculate difference in milliseconds
+    const diffMs = now - user.deletedAt;
+    // Convert milliseconds to days
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    if (diffDays <= 60) {
+      user.deletedAt = undefined;
+      await user.save();
+    } else {
+      return next(
+        new utils.AppError(
+          "Account has been permanently deleted – over 60 days.",
+          401
+        )
+      );
+    }
+  }
   if (user.authProvider != constants.authProvider.SYSTEM)
     return next(new utils.AppError("Invalid provider", 400));
 

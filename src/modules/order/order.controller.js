@@ -6,38 +6,52 @@ import * as orderSchema from './order.validation.js'
 import * as constants from '../../common/constants/index.constant.js'
 
 const orderRouter = Router()
-orderRouter.post('/create-order/:cartItemId',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
-    middlewares.isAuthorized(constants.roles.USER, constants.roles.ADMIN),
-    middlewares.validateSchema(orderSchema.createOrder),
-    utils.asyncHandler(orderService.createOrder))
 
 orderRouter.get('/get-user-orders',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
     middlewares.isAuthorized(constants.roles.USER),
     utils.asyncHandler(orderService.getUserOrders))
 
-orderRouter.get('/get-user-order/:orderId',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
-    middlewares.isAuthorized(constants.roles.USER, constants.roles.ADMIN),
-    middlewares.validateSchema(orderSchema.getUserOrder),
-    utils.asyncHandler(orderService.getUserOrder))
+orderRouter.get('/get-order-details/:orderId',
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.USER, constants.roles.CHEF),
+    middlewares.validateSchema(orderSchema.getOrderDetails),
+    utils.asyncHandler(orderService.getOrderDetails))
+
+orderRouter.get('/get-full-order/:orderId',
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.USER, constants.roles.CHEF),
+    middlewares.validateSchema(orderSchema.getFullOrder),
+    utils.asyncHandler(orderService.getFullOrder))
 
 orderRouter.delete('/cancel-order/:orderId',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
-    middlewares.isAuthorized(constants.roles.USER, constants.roles.ADMIN),
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.USER, constants.roles.CHEF),
     middlewares.validateSchema(orderSchema.cancelOrder),
     utils.asyncHandler(orderService.cancelOrder))
 
-orderRouter.get('/all-orders',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
-    middlewares.isAuthorized(constants.roles.ADMIN),
-    middlewares.validateSchema(orderSchema.getAllOrders),
-    utils.asyncHandler(orderService.getAllOrders))
+orderRouter.get('/get-chef-orders',
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.CHEF),
+    middlewares.validateSchema(orderSchema.getChefOrders),
+    utils.asyncHandler(orderService.getChefOrders))
+
+orderRouter.put('/accept-order/:orderId',
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.CHEF),
+    middlewares.validateSchema(orderSchema.acceptOrder),
+    utils.asyncHandler(orderService.acceptOrder))
 
 orderRouter.put('/update-order/:orderId',
-    middlewares.isAuthenticated(process.env.TOKEN_USER_VALUE),
-    middlewares.isAuthorized(constants.roles.ADMIN, constants.roles.CHEF, constants.roles.DELIVERY),
+    middlewares.isAuthenticated(process.env.BEARER_KEY),
+    middlewares.isVerified,
+    middlewares.isAuthorized(constants.roles.CHEF),
     middlewares.validateSchema(orderSchema.updateOrderStatus),
     utils.asyncHandler(orderService.updateOrderStatus))
 

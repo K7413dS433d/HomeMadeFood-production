@@ -20,20 +20,6 @@ const mealSchema = new Schema(
       min: [0, "Stock must be greater than or equal to 0"],
     },
 
-    size: {
-      type: String,
-      enum: Object.values(constants.mealSize),
-      required: true,
-    },
-
-    spiceLevel: {
-      type: String,
-      enum: Object.values(constants.mealSpiceLevel),
-      required: true,
-    },
-
-    tags: String,
-
     category: {
       type: String,
       enum: Object.values(constants.mealCategory),

@@ -46,11 +46,31 @@ export const updateUserProfile = async (req, res, next) => {
 export const updateChefProfile = async (req, res, next) => {
   const { user } = req;
 
-  const { displayName, description, kitchenAddress, openSchedule } = req.body;
+  const {
+    firstName,
+    lastName,
+    phone,
+    displayName,
+    description,
+    facebookPageLink,
+    instagramPageLink,
+    kitchenAddress,
+    openSchedule,
+  } = req.body;
+
+  if (firstName) user.firstName = firstName;
+
+  if (lastName) user.lastName = lastName;
+
+  if (phone) user.phone = phone;
 
   if (displayName) user.displayName = displayName;
 
   if (description) user.description = description;
+
+  if (facebookPageLink) user.facebookPageLink = facebookPageLink;
+
+  if (instagramPageLink) user.instagramPageLink = instagramPageLink;
 
   if (kitchenAddress) user.kitchenAddress = kitchenAddress;
 
@@ -130,7 +150,6 @@ export const deleteAccount = async (req, res, next) => {
   user.image.secure_url = image.secure_url;
 
   await user.save();
-
   return res
     .status(200)
     .json({ success: true, message: "Account deleted successfully" });
@@ -206,8 +225,9 @@ export const getChefProfile = async (req, res, next) => {
     "-password -phone -authProvider -deletedAt -verified -termsAccepted -kitchenAddress"
   );
 
-  //check if chef is exist
-  if (!chef) return next(new utils.AppError("Chef not found", 404));
+  //check if chef is exist and not deleted
+  if (!chef || chef.deletedAt)
+    return next(new utils.AppError("Chef not found", 404));
 
   if (chef.role != constants.roles.CHEF)
     return next(
@@ -232,6 +252,10 @@ export const chefFollowing = async (req, res, next) => {
   //check if the chef is exist
   const chef = await models.User.findById(chefId);
   if (!chef) return next(new utils.AppError("Chef not found", 404));
+
+  //check if the chef is deleted
+  if (chef.deletedAt)
+    return next(new utils.AppError("Cannot follow Deleted accounts", 400));
 
   //check if the chef is a chef
   if (chef.role != constants.roles.CHEF)
@@ -269,25 +293,47 @@ export const getUserFollowing = async (req, res, next) => {
   const { user } = req;
 
   //get all followed chefs
-  const chefs = await models.User.find({
+  const allChefs = await models.User.find({
     _id: { $in: user.followedChefs },
+    deletedAt: { $exists: false },
   }).select(
     "-password -phone -authProvider -deletedAt -verified -role -termsAccepted"
   );
-
+  const chefsWithDelivery = await utils.isDelivers({
+    userId: user.id,
+    allChefs,
+  });
+  const chefsWithRate = await utils.calcRate({ allChefs });
+  const mergedChefs = await utils.mergeChefData({
+    chefsWithRate,
+    chefsWithDelivery,
+  });
   return res.status(200).json({
     success: true,
     message: "successfully",
     data: {
-      chefs,
+      mergedChefs,
     },
   });
 };
 
 export const getAllChefs = async (req, res, next) => {
+  const { page = 1, limit = 4 } = req.query;
   const userId = req.user.id;
+
+  // Count total documents before pagination
+  const totalCount = await models.User.countDocuments({
+    role: constants.roles.CHEF,
+    deletedAt: { $exists: false },
+  });
+
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / parseInt(limit));
   const apiFeature = new ApiFeatures(
-    models.User.find({ role: constants.roles.CHEF }).select(
+    models.User.find({
+      role: constants.roles.CHEF,
+      deletedAt: { $exists: false },
+    }).select(
       "description image displayName firstName lastName kitchenAddress"
     ),
     req.query
@@ -297,10 +343,21 @@ export const getAllChefs = async (req, res, next) => {
     .fields();
   const allChefs = await apiFeature.mongooseQuery;
   const chefsWithDelivery = await utils.isDelivers({ userId, allChefs });
-  // const avgRating = await utils.calcRate({allChefs})
+  const chefsWithRate = await utils.calcRate({ allChefs });
+  const mergedChefs = await utils.mergeChefData({
+    chefsWithRate,
+    chefsWithDelivery,
+  });
+
   res.status(200).json({
     success: true,
     message: "successfully",
-    data: chefsWithDelivery,
+    data: mergedChefs,
+    pagination: {
+      totalCount,
+      totalPages,
+      currentPage: parseInt(page),
+      limit: parseInt(limit),
+    },
   });
 };

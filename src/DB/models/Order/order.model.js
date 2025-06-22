@@ -10,7 +10,7 @@ export const orderSchema = new Schema({
     },
     chef: {
         type: Schema.ObjectId,
-        ref: 'Chef',
+        ref: 'User',
         required: [true, "Chef is required."]
     },
     cartItem:
@@ -34,7 +34,7 @@ export const orderSchema = new Schema({
         longitude: { type: String },
         latitude: { type: String }
     },
-    orderPrice: {
+    subtotal: {
         type: Number,
         min: [0, "Order price must be greater than or equal to 0"],
         required: true
@@ -44,6 +44,27 @@ export const orderSchema = new Schema({
         enum: Object.values(constants.paymentMethod),
         default: constants.paymentMethod.VISA,
         rquired: [true, "Payment method is required."]
+    },
+    deliveryFee:{
+        type: Number,
+        min: [0, "Delivery fee must be greater than or equal to 0"],
+        default: 0
+    },
+    serviceFee:{
+        type: Number,
+        min: [0, "Service fee must be greater than or equal to 0"],
+        default: 0
+    },
+    total:{
+        type: Number,
+        min: [0, "Total price must be greater than or equal to 0"],
+        required: true
+    },
+    acceptedAt: {
+        type: Date
+    },
+    deliveredAt: {    
+        type: Date
     },
 }, { timestamps: true })
 

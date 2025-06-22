@@ -19,6 +19,10 @@ export const isAuthenticated = (bearerKey) => {
 
     const user = await models.User.findById(decodedToken.id);
 
+    // denied access if user is deleted
+    if (user.deletedAt)
+      return next(new AppError("Access denied account is deleted", 403));
+
     if (!user)
       //check user existence
       return next(

@@ -18,12 +18,10 @@ export const deleteReview = joi.object({
 }).required()
 
 // get all reviews schema
-export const getAllReviews = joi.object({
-    // query
-    rate: joi.number().min(0).max(5),
-    isDeleted: joi.boolean(),
-    user: joi.string()
-})
+export const getMealReviews = joi.object({
+    // params
+    mealId: joi.string().required()
+}).required()
 
 // get user reviews schema
 export const getUserReview = joi.object({

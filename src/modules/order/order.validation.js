@@ -42,15 +42,25 @@ export const updateOrderStatus = joi.object({
 }).required()
 
 // get specific order schema
-export const getUserOrder = joi.object({
+export const getOrderDetails = joi.object({
     // params
     orderId: joi.string().required()
 }).required()
 
-// get all orders schema
-export const getAllOrders = joi.object({
-    // query
+// get full order
+export const getFullOrder = joi.object({
+    // params
+    orderId: joi.string().required()
+}).required()
+
+// get chef orders schema
+export const getChefOrders = joi.object({
     status: joi.string().valid(...Object.values(constants.orderStatus)),
-    paymentMethod: joi.string().valid(...Object.values(constants.paymentMethod)),
-    user: joi.string()
-})
+    range: joi.string().valid(...Object.values(constants.dateFilter)),
+}).required()
+
+// accept order schema
+export const acceptOrder = joi.object({
+    // params
+    orderId: joi.string().required()
+}).required()
