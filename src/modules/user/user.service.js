@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import moment from "moment";
 import { image } from "../../common/constants/index.constant.js";
 import models from "./../../DB/models/index.models.js";
 import * as utils from "./../../utils/index.utils.js";
@@ -321,13 +323,11 @@ export const getAllChefs = async (req, res, next) => {
   const { page = 1, limit = 4 } = req.query;
   const userId = req.user.id;
 
-  // Count total documents before pagination
   const totalCount = await models.User.countDocuments({
     role: constants.roles.CHEF,
     deletedAt: { $exists: false },
   });
 
-  // Calculate total pages
   const totalPages = Math.ceil(totalCount / parseInt(limit));
   const apiFeature = new ApiFeatures(
     models.User.find({
@@ -359,5 +359,409 @@ export const getAllChefs = async (req, res, next) => {
       currentPage: parseInt(page),
       limit: parseInt(limit),
     },
+  });
+};
+
+export const topSellingMealsForChef = async (req, res, next) => {
+  const chefId = req.user.id;
+  const topSellingMeals = await models.Order.aggregate([
+    {
+      $match: {
+        status: constants.orderStatus.DELIVERED,
+        chef: new mongoose.Types.ObjectId(chefId),
+        createdAt: {
+          $gte: new Date(new Date() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+        },
+      },
+    },
+
+    {
+      $lookup: {
+        from: "cartitems",
+        localField: "cartItem",
+        foreignField: "_id",
+        as: "cartItem",
+      },
+    },
+    { $unwind: "$cartItem" },
+    {
+      $match: {
+        "cartItem.chef": new mongoose.Types.ObjectId(chefId),
+      },
+    },
+    { $unwind: "$cartItem.meals" },
+    {
+      $group: {
+        _id: "$cartItem.meals.mealId",
+        totalSold: { $sum: "$cartItem.meals.quantity" },
+        lastOrderDate: { $max: "$createdAt" },
+      },
+    },
+    {
+      $sort: { totalSold: -1 },
+    },
+    {
+      $limit: 10,
+    },
+    {
+      $lookup: {
+        from: "meals",
+        localField: "_id",
+        foreignField: "_id",
+        as: "meal",
+      },
+    },
+    {
+      $unwind: "$meal",
+    },
+
+    {
+      $lookup: {
+        from: "reviews",
+        localField: "meal._id",
+        foreignField: "meal",
+        as: "reviews",
+      },
+    },
+    {
+      $addFields: {
+        avgRating: {
+          $let: {
+            vars: {
+              validReviews: {
+                $filter: {
+                  input: "$reviews",
+                  as: "review",
+                  cond: { $eq: ["$$review.isDeleted", false] },
+                },
+              },
+            },
+            in: {
+              $cond: [
+                { $gt: [{ $size: "$$validReviews" }, 0] },
+                { $avg: "$$validReviews.rate" },
+                0,
+              ],
+            },
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        label: { $literal: "Top of the Last Month" },
+        _id: 0,
+        mealId: "$_id",
+        name: "$meal.name",
+        totalSold: 1,
+        avgRating: 1,
+        price: "$meal.price",
+        lastOrderDate: {
+          $dateToString: { format: "%H:%M:%S", date: "$lastOrderDate" },
+        },
+        image: { $arrayElemAt: ["$meal.images.secure_url", 0] },
+      },
+    },
+  ]);
+  if (!topSellingMeals || topSellingMeals.length === 0) {
+    return next(new utils.AppError("No data found for this chef", 404));
+  }
+  topSellingMeals.forEach((meal, index) => {
+    meal.rank = index + 1;
+  });
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+  const paginatedMeals = topSellingMeals.slice(startIndex, endIndex);
+  return res.status(200).json({
+    success: true,
+    message: "Top selling meals fetched successfully",
+    data: paginatedMeals,
+    pagination: {
+      currentPage: page,
+      limit,
+    },
+  });
+};
+
+export const pendingOrders = async (req, res, next) => {
+  const chefId = req.user.id;
+  const pendingOrders = await models.Order.aggregate([
+    {
+      $match: {
+        chef: new mongoose.Types.ObjectId(chefId),
+        status: constants.orderStatus.ORDERED,
+      },
+    },
+    {
+      $lookup: {
+        from: "cartitems",
+        localField: "cartItem",
+        foreignField: "_id",
+        as: "cartItem",
+      },
+    },
+    { $unwind: "$cartItem" },
+    {
+      $unwind: "$cartItem.meals",
+    },
+    {
+      $lookup: {
+        from: "meals",
+        localField: "cartItem.meals.mealId",
+        foreignField: "_id",
+        as: "mealData",
+      },
+    },
+    {
+      $unwind: "$mealData",
+    },
+    {
+      $group: {
+        _id: "$_id",
+        createdAt: { $first: "$createdAt" },
+        user: { $first: "$user" },
+        meals: {
+          $push: {
+            quantity: "$cartItem.meals.quantity",
+            meal: {
+              name: "$mealData.name",
+              price: "$mealData.price",
+              image: { $arrayElemAt: ["$mealData.images.secure_url", 0] },
+            },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        mealsCount: { $size: "$meals" },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "user",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    { $unwind: "$user" },
+    {
+      $addFields: {
+        lastOrderHour: {
+          $let: {
+            vars: {
+              hour: { $hour: { date: "$createdAt", timezone: "UTC" } },
+            },
+            in: {
+              $cond: [
+                { $eq: ["$$hour", 0] },
+                12,
+                {
+                  $cond: [
+                    { $gt: ["$$hour", 12] },
+                    { $subtract: ["$$hour", 12] },
+                    "$$hour",
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        lastOrderMinute: {
+          $toString: {
+            $minute: { date: "$createdAt", timezone: "UTC" },
+          },
+        },
+        amPm: {
+          $cond: [
+            {
+              $lt: [{ $hour: { date: "$createdAt", timezone: "UTC" } }, 12],
+            },
+            "AM",
+            "PM",
+          ],
+        },
+      },
+    },
+    {
+      $addFields: {
+        orderTime: {
+          $concat: [
+            { $toString: "$lastOrderHour" },
+            ":",
+            {
+              $cond: [
+                { $lt: [{ $strLenCP: "$lastOrderMinute" }, 2] },
+                { $concat: ["0", "$lastOrderMinute"] },
+                "$lastOrderMinute",
+              ],
+            },
+            " ",
+            "$amPm",
+          ],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        orderTime: 1,
+        mealsCount: 1,
+        cartItem: {
+          meals: "$meals",
+        },
+        user: {
+          fullName: {
+            $concat: ["$user.firstName", " ", "$user.lastName"],
+          },
+          image: "$user.image.secure_url",
+        },
+      },
+    },
+  ]);
+
+  if (!pendingOrders || pendingOrders.length === 0) {
+    return next(
+      new utils.AppError("No pending orders found for this chef", 404)
+    );
+  }
+  return res.status(200).json({
+    success: true,
+    message: "Pending orders fetched successfully",
+    data: pendingOrders,
+  });
+};
+
+export const salesOverview = async (req, res, next) => {
+  const chefId = req.user.id;
+  const filter = req.query.filter || constants.salesOverview.ALL_TIME;
+  let matchStage = {
+    chef: new mongoose.Types.ObjectId(chefId),
+    status: {
+      $in: [
+        constants.orderStatus.DELIVERED,
+        constants.orderStatus.CANCELED,
+        constants.orderStatus.ORDERED,
+      ],
+    },
+  };
+
+  if (filter !== constants.salesOverview.ALL_TIME) {
+    const now = moment().endOf("day");
+    let start;
+
+    switch (filter) {
+      case constants.salesOverview.TODAY:
+        start = moment().startOf("day");
+        break;
+      case constants.salesOverview.WEEKLY:
+        start = moment().startOf("isoWeek");
+        break;
+      case constants.salesOverview.MONTHLY:
+        start = moment().startOf("month");
+        break;
+      case constants.salesOverview.YEARLY:
+        start = moment().startOf("year");
+        break;
+    }
+
+    matchStage.createdAt = {
+      $gte: start.toDate(),
+      $lte: now.toDate(),
+    };
+  }
+
+  const result = await models.Order.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: null,
+        sales: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", constants.orderStatus.DELIVERED] },
+              "$total",
+              0,
+            ],
+          },
+        },
+        orders: { $sum: 1 },
+        completed: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", constants.orderStatus.DELIVERED] },
+              1,
+              0,
+            ],
+          },
+        },
+        canceled: {
+          $sum: {
+            $cond: [{ $eq: ["$status", constants.orderStatus.CANCELED] }, 1, 0],
+          },
+        },
+        pending: {
+          $sum: {
+            $cond: [{ $eq: ["$status", constants.orderStatus.ORDERED] }, 1, 0],
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        incomes: {
+          $subtract: [
+            "$sales",
+            {
+              $add: [
+                {
+                  $multiply: ["$sales", 0.05],
+                },
+                50,
+              ],
+            },
+          ],
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        sales: 1,
+        incomes: 1,
+        orders: 1,
+        completed: 1,
+        canceled: 1,
+        pending: 1,
+      },
+    },
+  ]);
+  if (!result || result.length === 0) {
+    return next(
+      new utils.AppError(`There are no sales recorded for ${filter} `, 404)
+    );
+  }
+  return res.status(200).json({
+    success: true,
+    message: "Sales overview fetched successfully",
+    data: result,
+  });
+};
+
+export const displayOrUpdateStatus = async (req, res, next) => {
+  const { user } = req;
+  const { kitchenStatus } = req.body;
+  const chefStatus = await models.User.findById(user.id);
+  if (kitchenStatus) {
+    chefStatus.kitchenStatus = kitchenStatus;
+    await chefStatus.save();
+  }
+  return res.status(200).json({
+    success: true,
+    message: `Kitchen status is ${chefStatus.kitchenStatus} now`,
+    data: { status: chefStatus.kitchenStatus },
   });
 };

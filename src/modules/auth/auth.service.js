@@ -36,6 +36,7 @@ export const chefSignUp = async (req, res, next) => {
   const newChef = new models.User({
     ...req.body,
     role: constants.roles.CHEF,
+    kitchenStatus: constants.kitchenStatus.OPEN,
     authProvider: constants.authProvider.SYSTEM,
   });
 
@@ -101,6 +102,11 @@ export const logIn = async (req, res, next) => {
   if (user.authProvider != constants.authProvider.SYSTEM)
     return next(new utils.AppError("Invalid provider", 400));
 
+  if (user.role == constants.roles.CHEF) {
+    user.kitchenStatus = constants.kitchenStatus.OPEN;
+    await user.save();
+  }
+
   const isMatch = utils.comparPassword({
     password,
     hashPassword: user.password,
@@ -109,7 +115,6 @@ export const logIn = async (req, res, next) => {
   if (!isMatch) {
     return next(new utils.AppError("Invalid UserName or Password", 401));
   }
-
   const tokens = utils.generateTokens(user);
   const role = user.role;
 

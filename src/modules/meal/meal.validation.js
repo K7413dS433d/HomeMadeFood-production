@@ -6,6 +6,12 @@ import {
   objectIdValidator,
 } from "../../common/validators/index.validators.js";
 
+export const idOnlySchema = joi
+  .object({
+    id: objectIdSchema,
+  })
+  .required();
+
 export const addMeal = joi
   .object({
     name: joi.string().required(),
@@ -25,25 +31,16 @@ export const addMeal = joi
   .required();
 
 //delete meal
-export const deleteMeal = joi
-  .object({
-    id: objectIdSchema,
-  })
-  .required();
+export const deleteMeal = idOnlySchema;
 
 //add meal to fav
-export const addMealToFav = joi
-  .object({
-    id: objectIdSchema,
-  })
-  .required();
+export const addMealToFav = idOnlySchema;
 
 //add meal to fav
-export const removeMealFromFav = joi
-  .object({
-    id: objectIdSchema,
-  })
-  .required();
+export const removeMealFromFav = idOnlySchema;
+
+//get meal
+export const getMealDetails = idOnlySchema;
 
 //get meals
 export const getMeals = joi
