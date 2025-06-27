@@ -38,6 +38,40 @@ export const addMeal = async (req, res, next) => {
   });
 };
 
+export const getMealDetails = async (req, res, next) => {
+  const { id } = req.params;
+  const { user } = req;
+
+  //check meal exist
+  const mealExist = await models.Meal.findById(id)
+    .populate({
+      path: "reviews",
+      select: "-meal -user -isDeleted",
+    })
+    .populate("chef", "firstName lastName image")
+    .select("-favoriteBy");
+
+  if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
+
+  //check meal hidden status
+  if (mealExist.hiddenStatus && user.id != mealExist.chef.id)
+    return next(new utils.AppError("Unauthorized to see hidden meals", 401));
+
+  //review count
+  const reviewCount = await models.Review.countDocuments({
+    meal: mealExist.id,
+    isDeleted: { $ne: true }, // Exclude deleted reviews
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Meal details retrieved successfully",
+    data: {
+      meal: { ...mealExist.toJSON(), reviewCount },
+    },
+  });
+};
+
 //update chef meal
 export const updateMeal = async (req, res, next) => {
   const { user } = req;

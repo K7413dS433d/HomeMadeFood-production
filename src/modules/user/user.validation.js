@@ -33,8 +33,8 @@ export const updateEmail = joi
 //update chef profile
 export const updateChefProfile = joi
   .object({
-    firstName:joi.string(),
-    lastName:joi.string(),
+    firstName: joi.string(),
+    lastName: joi.string(),
     phone: joi
       .string()
       .pattern(constants.PHONE_REG)
@@ -106,3 +106,21 @@ export const getAllChefs = joi
     search: joi.string(),
   })
   .required();
+
+//sales overview
+export const salesOverview = joi
+  .object({
+    filter: joi
+      .string()
+      .valid(...Object.values(constants.salesOverview))
+      .optional(),
+  })
+  .required();
+
+  //kitchen status
+  export const kitchenStatus=joi.object({
+    kitchenStatus: joi
+      .string()
+      .valid(...Object.values(constants.kitchenStatus))
+      .optional(),
+  })

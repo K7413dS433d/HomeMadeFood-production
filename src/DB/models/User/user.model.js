@@ -160,6 +160,11 @@ const userSchema = new Schema(
       type: Boolean,
       required: isRoleMatching(constants.roles.CHEF),
     },
+    kitchenStatus: {
+      type: String,
+      enum: Object.values(constants.kitchenStatus),
+      default: isDefaultMatching(constants.roles.CHEF, constants.kitchenStatus.CLOSED),
+    },
   },
 
   {

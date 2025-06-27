@@ -119,5 +119,41 @@ userRouter.get(
   middlewares.validateSchema(userValidation.getAllChefs),
   asyncHandler(userService.getAllChefs)
 );
+//topSellingMeals for chef
+userRouter.get(
+  "/topSellingMeals",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.CHEF),
+  middlewares.isVerified,
+  asyncHandler(userService.topSellingMealsForChef)
+);
+//get pending orders for chef
+userRouter.get(
+  "/orders/pending",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.CHEF),
+  middlewares.isVerified,
+  asyncHandler(userService.pendingOrders)
+);
+
+//get sales overview for chef
+userRouter.get(
+  "/sales-overview",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.CHEF),
+  middlewares.isVerified,
+  middlewares.validateSchema(userValidation.salesOverview),
+  asyncHandler(userService.salesOverview)
+);
+
+//display or update kitchen status for chef
+userRouter.patch(
+  "/kitchen-status",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.CHEF),
+  middlewares.isVerified,
+  middlewares.validateSchema(userValidation.kitchenStatus),
+  asyncHandler(userService.displayOrUpdateStatus)
+);
 
 export default userRouter;

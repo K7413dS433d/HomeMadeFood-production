@@ -25,7 +25,7 @@ mealRouter.post(
   asyncHandler(mealService.addMeal)
 );
 
-// update meal
+/// update meal
 mealRouter.patch(
   "/:id",
   isAuthenticated(process.env.BEARER_KEY),
@@ -93,6 +93,16 @@ mealRouter.get(
   isVerified,
   validateSchema(mealSchema.getAllMeals),
   asyncHandler(mealService.getAllMeals)
+);
+
+//get meal
+mealRouter.get(
+  "/:id",
+  isAuthenticated(process.env.BEARER_KEY),
+  isAuthorized(roles.CHEF, roles.USER),
+  isVerified,
+  validateSchema(mealSchema.getMealDetails),
+  asyncHandler(mealService.getMealDetails)
 );
 
 mealRouter.post(
