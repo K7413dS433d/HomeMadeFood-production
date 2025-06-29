@@ -29,6 +29,10 @@ export const addMealToCart = async (req, res, next) => {
     if (chefExist.role !== "chef") {
         return next(new utils.AppError("User is not a chef.", 400));
     }
+    // check if the chef's kitchen is opened
+    if (chefExist.kitchenStatus !== "open") {
+        return next(new utils.AppError("The chef's kitchen is currently closed. You cannot order meals at this time.", 400));
+    }
 
     // check if this meal related to this chef 
     if (mealExist.chef.toString() !== chef.toString()) return next(new utils.AppError("Meal does not belong to this chef.", 400))
@@ -37,12 +41,14 @@ export const addMealToCart = async (req, res, next) => {
     meal.price = mealExist.price
 
     // search for a cartitem of this user with this chef
+    let cartItemId = null
     const cartItemExist = await models.CartItem.findOne({ user: req.user._id, chef, isCheckedOut: false })
     if (!cartItemExist || cartItemExist.isCheckedOut) {
         // create new cartitem
         const newCartItem = await models.CartItem.create({ user: req.user._id, chef, meals: [meal] })
         if (!newCartItem) return next(new utils.AppError("Failed to create cart item.", 500));
-
+        
+        cartItemId = newCartItem._id
         // add cartitem to cart
         const cart = await models.Cart.findOneAndUpdate(
             { user: req.user._id, isDeleted: false },
@@ -53,7 +59,14 @@ export const addMealToCart = async (req, res, next) => {
             }).select('-isDeleted -createdAt -updatedAt -__v');
 
         if (!cart) return next(new utils.AppError("Cart is not found.", 404))
-        return res.status(200).json({ success: true, message: "Meal added successfully to the cart." })
+        return res.status(200).json({
+            success: true,
+            message: "Meal added successfully to the cart.",
+            cartItem_Id: cartItemId,
+            mealsIds: newCartItem.meals.map(m => m.mealId)
+        });
+    }else{
+        cartItemId = cartItemExist._id
     }
 
     // check meal existence in the cartitem
@@ -83,7 +96,12 @@ export const addMealToCart = async (req, res, next) => {
     if (!updatedCart)
         return next(new utils.AppError("Cart is not found.", 404));
 
-    return res.status(201).json({ success: true, message: "Meal added successfully to the cart." })
+    return res.status(201).json({
+    success: true,
+    message: "Meal added successfully to the cart.",
+    cartItem_Id: cartItemId,
+    mealsIds: cartItemExist.meals.map(m => m.mealId)
+});
 }
 
 // delete a meal from the cart item
