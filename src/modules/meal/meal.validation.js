@@ -86,10 +86,3 @@ export const updateMeal = joi
     "stock"
   )
   .required();
-
-//similar meals
-export const similarMeals = joi
-  .object({
-    file: fileValidatorType("file"),
-  })
-  .required();

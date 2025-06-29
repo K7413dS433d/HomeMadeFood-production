@@ -107,11 +107,10 @@ mealRouter.get(
 
 mealRouter.post(
   "/similar",
-  isAuthenticated(process.env.TOKEN_USER_VALUE),
-  isAuthorized(roles.CHEF, roles.USER),
+  isAuthenticated(process.env.BEARER_KEY),
   isVerified,
+  isAuthorized(roles.CHEF, roles.USER),
   singleUploader({ fieldName: "file", allowedExtensions: extensions.IMAGES }),
-  validateSchema(mealSchema.getMeals),
   asyncHandler(mealService.getSimilarMeals)
 );
 export default mealRouter;

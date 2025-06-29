@@ -1,3 +1,4 @@
+import fs from "fs";
 import axios from "axios";
 import FormData from "form-data";
 import models from "./../../DB/models/index.models.js";
@@ -422,24 +423,34 @@ export const getAllMeals = async (req, res, next) => {
 };
 
 export const getSimilarMeals = async (req, res, next) => {
-  const file = req.file;
-  if (!file) return next(new utils.AppError("No image uploaded.", 400));
+    const file = req.file;
+    if (!file) return next(new utils.AppError("No image uploaded.", 400));
 
-  const formData = new FormData();
-  formData.append("file", file.path);
+    const formData = new FormData();
+    formData.append("file", fs.createReadStream(file.path));
 
-  const response = await axios.post(process.env.URL_SEARCH_BY_IMAGE, formData, {
-    ...formData.getHeaders(),
-  });
+    const headers = formData.getHeaders();
 
-  const similarMealIds = response.data.similar_meal_ids;
-  const similarMeals = await models.Meal.find({ _id: { $in: similarMealIds } });
-  if (similarMeals.length == 0)
-    return next(new utils.AppError("No similar meals found", 404));
+    try {
+        const response = await axios.post(
+            process.env.URL_SEARCH_BY_IMAGE,
+            formData,
+            { headers }
+        );
 
-  return res.status(200).json({
-    success: true,
-    message: "Image processed successfully",
-    data: similarMeals,
-  });
+        const similarMealIds = response.data.similar_meal_ids;
+
+        const similarMeals = await models.Meal.find({ _id: { $in: similarMealIds } });
+
+        if (similarMeals.length === 0)
+            return next(new utils.AppError("No similar meals found", 404));
+
+        return res.status(200).json({
+            success: true,
+            message: "Image processed successfully",
+            data: similarMeals,
+        });
+    } catch (error) {
+        return next(new utils.AppError("Image search failed", 500));
+    }
 };
