@@ -184,6 +184,7 @@ export const switchRole = async (req, res, next) => {
   const { user } = req;
   if (user.role == constants.roles.USER) {
     user.role = constants.roles.CHEF;
+    user.kitchenStatus = constants.kitchenStatus.OPEN;
     if (!user.paymentMethod) {
       user.displayName = req.body.displayName;
       user.description = req.body.description;
@@ -191,6 +192,7 @@ export const switchRole = async (req, res, next) => {
       user.openSchedule = req.body.openSchedule;
       user.paymentMethod = req.body.paymentMethod;
       user.termsAccepted = req.body.termsAccepted;
+      user.kitchenStatus = constants.kitchenStatus.OPEN;
       if (req.body.facebookPageLink)
         user.facebookPageLink = req.body.facebookPageLink;
       if (req.body.instagramPageLink)
@@ -198,6 +200,7 @@ export const switchRole = async (req, res, next) => {
     }
   } else if (user.role == constants.roles.CHEF) {
     user.role = constants.roles.USER;
+    user.kitchenStatus = constants.kitchenStatus.CLOSED;
   }
   await user.save();
   return res.status(200).json({
@@ -341,6 +344,7 @@ export const getAllChefs = async (req, res, next) => {
     .search("firstName", "lastName", "displayName", "description")
     .pagination()
     .fields();
+
   const allChefs = await apiFeature.mongooseQuery;
   const chefsWithDelivery = await utils.isDelivers({ userId, allChefs });
   const chefsWithRate = await utils.calcRate({ allChefs });
@@ -763,5 +767,59 @@ export const displayOrUpdateStatus = async (req, res, next) => {
     success: true,
     message: `Kitchen status is ${chefStatus.kitchenStatus} now`,
     data: { status: chefStatus.kitchenStatus },
+  });
+};
+
+//chefs near of you
+export const chefsNearYou = async (req, res, next) => {
+  const { page = 1, limit = 4 } = req.query;
+  const { user } = req;
+  const apiFeature = new ApiFeatures(
+    models.User.find({
+      role: constants.roles.CHEF,
+      deletedAt: { $exists: false },
+    }).select(
+      "description image displayName firstName lastName kitchenAddress"
+    ),
+    req.query
+  ).pagination();
+
+  const allChefs = await apiFeature.mongooseQuery;
+  const chefsWithDelivery = await utils.isDelivers({
+    userId: user.id,
+    allChefs,
+  });
+  const chefsWithRate = await utils.calcRate({ allChefs });
+  const mergedChefs = await utils.mergeChefData({
+    chefsWithRate,
+    chefsWithDelivery,
+  });
+
+  const chefsNearOfYou = mergedChefs.filter((chef) => chef.delivers);
+
+  if (chefsNearOfYou.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "No nearby chefs found",
+    });
+  }
+  if (chefsNearOfYou[0].delivers === "please enter your location") {
+    return res.status(400).json({
+      success: false,
+      message: "Please set your location to find nearby chefs",
+    });
+  }
+  const totalCount = chefsNearOfYou.length;
+  const totalPages = Math.ceil(totalCount / parseInt(limit));
+  return res.status(200).json({
+    success: true,
+    message: "Nearby chefs fetched successfully",
+    data: chefsNearOfYou,
+    pagination: {
+      totalCount,
+      totalPages,
+      currentPage: parseInt(page),
+      limit: parseInt(limit),
+    },
   });
 };

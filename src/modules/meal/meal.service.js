@@ -49,7 +49,7 @@ export const getMealDetails = async (req, res, next) => {
       path: "reviews",
       select: "-meal -user -isDeleted",
     })
-    .populate("chef", "firstName lastName image")
+    .populate("chef", "firstName lastName image kitchenStatus")
     .select("-favoriteBy");
 
   if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
@@ -231,7 +231,7 @@ export const getFavoriteMeals = async (req, res, next) => {
     _id: { $in: user.favoriteMeals },
   })
     .populate([
-      { path: "chef", select: "firstName lastName image" },
+      { path: "chef", select: "firstName lastName image kitchenStatus" },
       {
         path: "reviews",
         select: "-meal",
@@ -359,6 +359,24 @@ export const getAllMeals = async (req, res, next) => {
       },
     },
     {
+      $lookup: {
+        from: "users",
+        localField: "chef",
+        foreignField: "_id",
+        as: "chef",
+        pipeline: [
+          {
+            $project: {
+              kitchenStatus: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$chef",
+    },
+    {
       $addFields: {
         avgRating: {
           $cond: [
@@ -423,34 +441,36 @@ export const getAllMeals = async (req, res, next) => {
 };
 
 export const getSimilarMeals = async (req, res, next) => {
-    const file = req.file;
-    if (!file) return next(new utils.AppError("No image uploaded.", 400));
+  const file = req.file;
+  if (!file) return next(new utils.AppError("No image uploaded.", 400));
 
-    const formData = new FormData();
-    formData.append("file", fs.createReadStream(file.path));
+  const formData = new FormData();
+  formData.append("file", fs.createReadStream(file.path));
 
-    const headers = formData.getHeaders();
+  const headers = formData.getHeaders();
 
-    try {
-        const response = await axios.post(
-            process.env.URL_SEARCH_BY_IMAGE,
-            formData,
-            { headers }
-        );
+  try {
+    const response = await axios.post(
+      process.env.URL_SEARCH_BY_IMAGE,
+      formData,
+      { headers }
+    );
 
-        const similarMealIds = response.data.similar_meal_ids;
+    const similarMealIds = response.data.similar_meal_ids;
 
-        const similarMeals = await models.Meal.find({ _id: { $in: similarMealIds } });
+    const similarMeals = await models.Meal.find({
+      _id: { $in: similarMealIds },
+    });
 
-        if (similarMeals.length === 0)
-            return next(new utils.AppError("No similar meals found", 404));
+    if (similarMeals.length === 0)
+      return next(new utils.AppError("No similar meals found", 404));
 
-        return res.status(200).json({
-            success: true,
-            message: "Image processed successfully",
-            data: similarMeals,
-        });
-    } catch (error) {
-        return next(new utils.AppError("Image search failed", 500));
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Image processed successfully",
+      data: similarMeals,
+    });
+  } catch (error) {
+    return next(new utils.AppError("Image search failed", 500));
+  }
 };

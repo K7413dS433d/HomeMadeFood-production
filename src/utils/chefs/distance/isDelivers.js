@@ -10,8 +10,11 @@ export const isDelivers = async ({ userId, allChefs }) => {
     if (location) {
       const chefLat = parseFloat(chef.kitchenAddress.latitude);
       const chefLon = parseFloat(chef.kitchenAddress.longitude);
-     const chefLocation = [chefLat, chefLon];
-     const userLocation = [parseFloat(location.latitude), parseFloat(location.longitude)];
+      const chefLocation = [chefLat, chefLon];
+      const userLocation = [
+        parseFloat(location.latitude),
+        parseFloat(location.longitude),
+      ];
       const distance = getDistanceFromLatLonInKm(chefLocation, userLocation);
       // console.log(`Distance: ${distance.toFixed(2)} km`);
       delivers = distance <= constants.deliversDistanceKM ? true : false; // true if within 10 km
