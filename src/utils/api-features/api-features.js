@@ -57,19 +57,29 @@ class ApiFeatures {
     return this;
   }
   filter() {
-    const { page = 1, limit = 4, sort, fields, search, ...filters } = this.data;
-    if (filters) {
-      const filtersAsString = JSON.stringify(filters);
-      const replacedFilters = filtersAsString.replace(
-        /\b(gt|gte|lt|lte)\b/g,
-        (match) => `$${match}`
-      );
-      const parsedFilters = JSON.parse(replacedFilters);
-      this.mongooseQuery.find(parsedFilters);
-      return this;
+  const { page = 1, limit = 4, sort, fields, search, ...filters } = this.data;
+  if (filters) {
+    const filtersAsString = JSON.stringify(filters);
+    const replacedFilters = filtersAsString.replace(
+      /\b(gt|gte|lt|lte)\b/g,
+      (match) => `$${match}`
+    );
+    const parsedFilters = JSON.parse(replacedFilters);
+
+    // Convert string numbers to actual numbers
+    for (const key in parsedFilters) {
+      const value = parsedFilters[key];
+      if (typeof value === 'object') {
+        for (const op in value) {
+          const num = Number(value[op]);
+          if (!isNaN(num)) value[op] = num;
+        }
+      }
     }
-    return this;
+    this.mongooseQuery.find(parsedFilters);
   }
+  return this;
+}
 }
 
 export default ApiFeatures;

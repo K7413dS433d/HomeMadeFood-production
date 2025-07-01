@@ -155,5 +155,13 @@ userRouter.patch(
   middlewares.validateSchema(userValidation.kitchenStatus),
   asyncHandler(userService.displayOrUpdateStatus)
 );
+//get all chefs near of you for user  
+userRouter.get(
+  "/all-chefs/nearby",
+  middlewares.isAuthenticated(process.env.BEARER_KEY),
+  middlewares.isAuthorized(roles.USER),
+  middlewares.isVerified,
+  asyncHandler(userService.chefsNearYou)
+);
 
 export default userRouter;

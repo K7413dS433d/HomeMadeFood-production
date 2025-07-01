@@ -11,7 +11,6 @@ export const validateSchema = (Schema) => {
     if (req.file || req.files?.length) {
       data.file = req.file || req.files;
     }
-
     const { error } = Schema.validate(data, { abortEarly: false });
     if (error) {
       const errors = error.details.map((error) => error.message);

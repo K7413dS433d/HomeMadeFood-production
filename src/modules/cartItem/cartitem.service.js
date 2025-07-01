@@ -1,5 +1,6 @@
 import { orderStatus } from '../../common/constants/order.constant.js'
 import models from '../../DB/models/index.models.js'
+import * as constants from '../../common/constants/index.constant.js'
 import * as utils from "../../utils/index.utils.js"
 
 // add a meal to the cart
@@ -21,16 +22,24 @@ export const addMealToCart = async (req, res, next) => {
         return next(new utils.AppError(`Only ${mealExist.stock} ${mealExist.name} are available in stock.`, 400));
     }
 
-    // check chef existence
     const chefExist = await models.User.findById(chef);
-    if (!chefExist) return next(new utils.AppError("Chef is not found.", 404));
-
-    // check if the user is actually a chef
-    if (chefExist.role !== "chef") {
-        return next(new utils.AppError("User is not a chef.", 400));
+    if (!chefExist) {
+        return next(new utils.AppError("Chef is not found.", 404));
     }
-    // check if the chef's kitchen is opened
-    if (chefExist.kitchenStatus !== "open") {
+    
+    // Not in chef mode
+    if (chefExist.role !== constants.roles.CHEF) {
+        if (!chefExist.kitchenStatus) {
+            // Never was a chef
+            return next(new utils.AppError("This user is not a chef and has no kitchen.", 400));
+        } else {
+            // Was a chef, but currently in user mode
+            return next(new utils.AppError("The chef's kitchen is currently closed.", 400));
+        }
+    }
+
+    // In chef mode, check if kitchen is open
+    if (chefExist.kitchenStatus !== constants.kitchenStatus.OPEN) {
         return next(new utils.AppError("The chef's kitchen is currently closed. You cannot order meals at this time.", 400));
     }
 
@@ -190,7 +199,7 @@ export const getCartItems = async (req, res, next) => {
                 },
                 {
                     path: 'meals.mealId',
-                    select: 'name images description'
+                    select: 'name images description stock'
                 }
             ]
         });
@@ -208,7 +217,7 @@ export const getCartItem = async (req, res, next) => {
     const { cartItemId } = req.params
 
     const cartItem = await models.CartItem.findById(cartItemId)
-        .populate({ path: 'meals.mealId', select: 'name images description' })
+        .populate({ path: 'meals.mealId', select: 'name images description stock' })
         .populate({ path: 'chef', select: 'firstName lastName image' })
         .select('-isDeleted -createdAt -updatedAt -__v').lean();
 
@@ -270,7 +279,7 @@ export const updateCartItem = async (req, res, next) => {
     }
 
     const updatedCartItem = await models.CartItem.findById(cartItemId)
-        .populate({ path: 'meals.mealId', select: 'name images description' })
+        .populate({ path: 'meals.mealId', select: 'name images description stock' })
         .populate({ path: 'chef', select: 'firstName lastName image' })
         .select('-isDeleted -createdAt -updatedAt -__v')
         .lean();
@@ -295,6 +304,27 @@ export const checkoutCartItem = async (req, res, next) => {
     }).populate("meals.mealId");
 
     if (!cartItem) return next(new utils.AppError("Cart item not found or already checked out", 404));
+
+    const chefExist = await models.User.findById(cartItem.chef);
+    if (!chefExist) {
+        return next(new utils.AppError("Chef is not found.", 404));
+    }
+    
+    // Not in chef mode
+    if (chefExist.role !== constants.roles.CHEF) {
+        if (!chefExist.kitchenStatus) {
+            // Never was a chef
+            return next(new utils.AppError("This user is not a chef and has no kitchen.", 400));
+        } else {
+            // Was a chef, but currently in user mode
+            return next(new utils.AppError("The chef's kitchen is currently closed.", 400));
+        }
+    }
+
+    // In chef mode, check if kitchen is open
+    if (chefExist.kitchenStatus !== constants.kitchenStatus.OPEN) {
+        return next(new utils.AppError("The chef's kitchen is currently closed. You cannot order meals at this time.", 400));
+    }
 
 
     for (const meal of cartItem.meals) {

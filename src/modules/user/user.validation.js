@@ -99,8 +99,6 @@ export const changePassword = joi
 //get all chefs
 export const getAllChefs = joi
   .object({
-    userLatitude: joi.custom(locationValidator(latitudeValidator)),
-    userLongitude: joi.custom(locationValidator(longitudeValidator)),
     page: joi.number(),
     limit: joi.number(),
     search: joi.string(),
@@ -117,10 +115,10 @@ export const salesOverview = joi
   })
   .required();
 
-  //kitchen status
-  export const kitchenStatus=joi.object({
-    kitchenStatus: joi
-      .string()
-      .valid(...Object.values(constants.kitchenStatus))
-      .optional(),
-  })
+//kitchen status
+export const kitchenStatus = joi.object({
+  kitchenStatus: joi
+    .string()
+    .valid(...Object.values(constants.kitchenStatus))
+    .optional(),
+});
