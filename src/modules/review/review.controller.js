@@ -14,7 +14,7 @@ reviewRouter.post('/add-review/:mealId',
     middlewares.validateSchema(reviewSchema.addReview),
     utils.asyncHandler(reviewService.addReview))
 
-reviewRouter.get('/get-user-reviews',
+reviewRouter.get('/get-user-reviews/:mealId',
     middlewares.isAuthenticated(process.env.BEARER_KEY),
     middlewares.isVerified,
     middlewares.isAuthorized(constants.roles.USER, constants.roles.ADMIN),
