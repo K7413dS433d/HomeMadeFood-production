@@ -98,11 +98,16 @@ export const deleteAddress = async (req, res, next) => {
   const { user } = req;
   const { id } = req.params;
 
-  //delete the doc
-  await models.Location.deleteOne({
+  //get existing address
+  const addressExist = await models.Location.findOne({
     _id: id,
     userId: user.id,
   });
+
+  if (!addressExist) return next(new AppError("Address not found", 404));
+
+  //delete the doc
+  await addressExist.deleteOne();
 
   res
     .status(200)

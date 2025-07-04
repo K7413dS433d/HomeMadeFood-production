@@ -1,66 +1,88 @@
 import joi from "joi";
-import * as constants from '../../common/constants/index.constant.js'
+import * as constants from "../../common/constants/index.constant.js";
 
 // add order schema
-export const createOrder = joi.object({
+export const createOrder = joi
+  .object({
     // params
     cartItemId: joi.string().required(),
 
     // body
     locationId: joi.string().optional(),
-    address: joi.string().when('locationId', {
-        is: joi.exist(),
-        then: joi.forbidden(),
-        otherwise: joi.required()
+    address: joi.string().when("locationId", {
+      is: joi.exist(),
+      then: joi.forbidden(),
+      otherwise: joi.required(),
     }),
-    longitude: joi.string().when('locationId', {
-        is: joi.exist(),
-        then: joi.forbidden(),
-        otherwise: joi.required()
+    longitude: joi.string().when("locationId", {
+      is: joi.exist(),
+      then: joi.forbidden(),
+      otherwise: joi.required(),
     }),
-    latitude: joi.string().when('locationId', {
-        is: joi.exist(),
-        then: joi.forbidden(),
-        otherwise: joi.required()
+    latitude: joi.string().when("locationId", {
+      is: joi.exist(),
+      then: joi.forbidden(),
+      otherwise: joi.required(),
     }),
-    paymentMethod: joi.string().valid(...Object.values(constants.paymentMethod)).required()
-}).required()
+    paymentMethod: joi
+      .string()
+      .valid(...Object.values(constants.paymentMethod))
+      .required(),
+  })
+  .required();
 
-// cancel order schema 
-export const cancelOrder = joi.object({
+// cancel order schema
+export const cancelOrder = joi
+  .object({
     // params
-    orderId: joi.string().required()
-}).required()
+    orderId: joi.string().required(),
+  })
+  .required();
 
 // update order status schema
-export const updateOrderStatus = joi.object({
+export const updateOrderStatus = joi
+  .object({
     // body
-    status: joi.string().valid(...Object.values(constants.orderStatus)).required(),
+    status: joi
+      .string()
+      .valid(...Object.values(constants.orderStatus))
+      .required(),
 
     // params
-    orderId: joi.string().required()
-}).required()
+    orderId: joi.string().required(),
+  })
+  .required();
 
 // get specific order schema
-export const getOrderDetails = joi.object({
+export const getOrderDetails = joi
+  .object({
     // params
-    orderId: joi.string().required()
-}).required()
+    orderId: joi.string().required(),
+  })
+  .required();
 
 // get full order
-export const getFullOrder = joi.object({
+export const getFullOrder = joi
+  .object({
     // params
-    orderId: joi.string().required()
-}).required()
+    orderId: joi.string().required(),
+  })
+  .required();
 
 // get chef orders schema
-export const getChefOrders = joi.object({
-    status: joi.string().valid(...Object.values(constants.orderStatus)),
-    range: joi.string().valid(...Object.values(constants.dateFilter)),
-}).required()
+export const getChefOrders = joi
+  .object({
+    filter: joi
+      .string()
+      .valid(...Object.values(constants.salesOverview))
+      .optional(),
+  })
+  .required();
 
 // accept order schema
-export const acceptOrder = joi.object({
+export const acceptOrder = joi
+  .object({
     // params
-    orderId: joi.string().required()
-}).required()
+    orderId: joi.string().required(),
+  })
+  .required();
