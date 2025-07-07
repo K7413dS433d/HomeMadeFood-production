@@ -166,10 +166,16 @@ export const cancelOrder = async (req, res, next) => {
 export const getChefOrders = async (req, res, next) => {
   const chefId = req.user.id;
   const filter = req.query.filter || constants.salesOverview.ALL_TIME;
+  const name = req.query.name;
+  const status = req.query.status;
+  const skip = parseInt(req.query.skip) || 0;
+  const limit = parseInt(req.query.limit) || 10;
+
   let matchStage = {
     chef: new mongoose.Types.ObjectId(chefId),
   };
 
+  // Filter by date
   if (filter !== constants.salesOverview.ALL_TIME) {
     const now = moment().endOf("day");
     let start;
@@ -195,7 +201,12 @@ export const getChefOrders = async (req, res, next) => {
     };
   }
 
-  const result = await models.Order.aggregate([
+  // Filter by status if exists
+  if (status) {
+    matchStage.status = status;
+  }
+
+  const pipeline = [
     { $match: matchStage },
     {
       $lookup: {
@@ -206,6 +217,20 @@ export const getChefOrders = async (req, res, next) => {
       },
     },
     { $unwind: "$user" },
+  ];
+
+  if (name) {
+    pipeline.push({
+      $match: {
+        "user.firstName": {
+          $regex: name,
+          $options: "i",
+        },
+      },
+    });
+  }
+
+  pipeline.push(
     {
       $addFields: {
         lastOrderHour: {
@@ -268,18 +293,22 @@ export const getChefOrders = async (req, res, next) => {
         _id: "$_id",
         name: "$user.firstName",
         status: "$status",
-        orderTime: 1
+        orderTime: 1,
       },
     },
-  ]);
+    { $skip: skip },
+    { $limit: limit }
+  );
+
+  const result = await models.Order.aggregate(pipeline);
+
   if (!result || result.length === 0) {
-    return next(
-      new utils.AppError(`There are no sales recorded for ${filter} `, 404)
-    );
+    return next(new utils.AppError(`No orders found for ${filter}`, 404));
   }
+
   return res.status(200).json({
     success: true,
-    message: "Sales overview fetched successfully",
+    message: "Orders fetched successfully",
     data: result,
   });
 };

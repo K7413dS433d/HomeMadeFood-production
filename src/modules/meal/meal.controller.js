@@ -46,6 +46,14 @@ mealRouter.delete(
   asyncHandler(mealService.deleteMeal)
 );
 
+//get recommended meals
+mealRouter.get("/get-recommended-meals",
+  isAuthenticated(process.env.BEARER_KEY),
+  isAuthorized(roles.USER),
+  isVerified,
+  asyncHandler(mealService.getRecommendedMeals)
+);
+
 // get all chef meals
 mealRouter.get(
   "/chef",

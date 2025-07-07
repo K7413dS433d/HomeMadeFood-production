@@ -474,3 +474,68 @@ export const getSimilarMeals = async (req, res, next) => {
     return next(new utils.AppError("Image search failed", 500));
   }
 };
+
+export const getRecommendedMeals = async (req, res, next) => {
+  const { userIds } = req.body;
+
+  if (!userIds || userIds.length === 0) {
+    return res.status(400).json({ message: 'UserIds must be a non-empty array.' });
+  }
+
+  // Fetch users with their favoriteMeals
+  const users = await models.User.find({
+    _id: { $in: userIds }
+  }).select('_id favoriteMeals');
+
+  // Build map of userId -> Set of favorite mealIds (as strings)
+  const userFavoritesMap = new Map();
+  for (const user of users) {
+    userFavoritesMap.set(
+      user._id.toString(),
+      new Set(user.favoriteMeals.map(id => id.toString()))
+    );
+  }
+
+  // Fetch recommendations and populate meals
+  const recommendations = await models.User_Recommendation.find({
+    userId: { $in: userIds }
+  }).populate({
+    path: 'meals.mealId',
+    populate: { path: 'chef' }
+  });
+
+  // Build response
+  const response = recommendations.map(rec => {
+    const userIdStr = rec.userId.toString();
+    const favoriteSet = userFavoritesMap.get(userIdStr) || new Set();
+
+    const validMeals = rec.meals
+      .filter(meal => meal.mealId && typeof meal.mealId === 'object')
+      .map(meal => {
+        const m = meal.mealId;
+        const chef = m.chef || {};
+        const mealIdStr = m._id.toString();
+
+        return {
+          id: m._id,
+          name: m.name,
+          images: m.images || [],
+          price: m.price,
+          stock: m.stock,
+          category: m.category,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          avgRating: m.avgRating || 0,
+          chef: {chefImage: chef.image || null, chefName: chef.firstName + ' ' + chef.lastName},
+          isFavorite: favoriteSet.has(mealIdStr)
+        };
+      });
+
+    return {
+      userId: rec.userId,
+      meals: validMeals
+    };
+  });
+
+  res.status(200).json({ recommendations: response });
+};

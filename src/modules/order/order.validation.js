@@ -76,6 +76,13 @@ export const getChefOrders = joi
       .string()
       .valid(...Object.values(constants.salesOverview))
       .optional(),
+    name: joi.string().optional(),
+    status: joi
+      .string()
+      .valid(...Object.values(constants.orderStatus))
+      .optional(),
+    skip: joi.number().integer().min(0).default(0),
+    limit: joi.number().integer().min(1).default(10),
   })
   .required();
 
