@@ -48,7 +48,8 @@ export const chefSignUp = async (req, res, next) => {
       req,
       options: { folder: profileDir, fileName: "profilePic" },
     });
-
+    // Create user cart
+    await models.Cart.create({ user: newChef._id, cartItems: [] });
     //add image
     newChef.image = image;
   }

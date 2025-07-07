@@ -217,9 +217,18 @@ export const getProfile = async (req, res, next) => {
     "-password -authProvider -deletedAt -verified -role -termsAccepted"
   );
 
-  return res
-    .status(200)
-    .json({ success: true, message: "successfully", data: chef });
+  const defaultLocation = await models.Location.findOne({
+    userId: id,
+    default: true,
+  }).select("addressName longitude latitude");
+  if (!defaultLocation)
+    return next(new utils.AppError("Default location not found", 404));
+
+  return res.status(200).json({
+    success: true,
+    message: "successfully",
+    data: { chef, defaultLocation },
+  });
 };
 
 //get chef profile
@@ -796,6 +805,7 @@ export const chefsNearYou = async (req, res, next) => {
   });
 
   const chefsNearOfYou = mergedChefs.filter((chef) => chef.delivers);
+  // console.log(chefsNearOfYou)
 
   if (chefsNearOfYou.length === 0) {
     return res.status(404).json({
