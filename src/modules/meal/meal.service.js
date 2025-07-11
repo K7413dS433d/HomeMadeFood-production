@@ -388,6 +388,9 @@ export const getAllMeals = async (req, res, next) => {
         pipeline: [
           {
             $project: {
+              firstName: 1,
+              lastName: 1,
+              image: 1,
               kitchenStatus: 1,
             },
           },
@@ -406,12 +409,15 @@ export const getAllMeals = async (req, res, next) => {
             { $avg: "$reviews.rate" },
           ],
         },
+        chefName: { $concat: ["$chef.firstName", " ", "$chef.lastName"] },
+        chefImage: "$chef.image",
       },
     },
     {
       $project: {
         reviews: 0,
         password: 0,
+        chef: 0,
       },
     },
     {
@@ -481,6 +487,9 @@ export const getSimilarMeals = async (req, res, next) => {
 
     const similarMeals = await models.Meal.find({
       _id: { $in: similarMealIds },
+    }).populate({
+      path: "chef",
+      select: "firstName lastName displayName image",
     });
 
     if (similarMeals.length === 0)

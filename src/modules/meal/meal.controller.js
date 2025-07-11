@@ -47,7 +47,7 @@ mealRouter.delete(
 );
 
 //get recommended meals
-mealRouter.get("/get-recommended-meals",
+mealRouter.post("/get-recommended-meals",
   isAuthenticated(process.env.BEARER_KEY),
   isAuthorized(roles.USER),
   isVerified,
