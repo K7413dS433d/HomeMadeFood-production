@@ -43,19 +43,19 @@ export const orderSchema = new Schema({
         type: String,
         enum: Object.values(constants.paymentMethod),
         default: constants.paymentMethod.VISA,
-        rquired: [true, "Payment method is required."]
+        required: [true, "Payment method is required."]
     },
-    deliveryFee:{
+    deliveryFee: {
         type: Number,
         min: [0, "Delivery fee must be greater than or equal to 0"],
         default: 0
     },
-    serviceFee:{
+    serviceFee: {
         type: Number,
         min: [0, "Service fee must be greater than or equal to 0"],
         default: 0
     },
-    total:{
+    total: {
         type: Number,
         min: [0, "Total price must be greater than or equal to 0"],
         required: true
@@ -63,7 +63,7 @@ export const orderSchema = new Schema({
     acceptedAt: {
         type: Date
     },
-    deliveredAt: {    
+    deliveredAt: {
         type: Date
     },
 }, { timestamps: true })

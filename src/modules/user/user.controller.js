@@ -40,7 +40,7 @@ userRouter.put(
 userRouter.patch(
   "/email",
   middlewares.isAuthenticated(process.env.BEARER_KEY),
-  middlewares.isAuthorized(roles.USER),
+  middlewares.isAuthorized(roles.USER, roles.CHEF),
   middlewares.isVerified,
   middlewares.validateSchema(userValidation.updateEmail),
   asyncHandler(userService.updateEmail)
@@ -155,7 +155,7 @@ userRouter.patch(
   middlewares.validateSchema(userValidation.kitchenStatus),
   asyncHandler(userService.displayOrUpdateStatus)
 );
-//get all chefs near of you for user  
+//get all chefs near of you for user
 userRouter.get(
   "/all-chefs/nearby",
   middlewares.isAuthenticated(process.env.BEARER_KEY),

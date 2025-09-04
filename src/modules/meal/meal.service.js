@@ -4,7 +4,7 @@ import FormData from "form-data";
 import models from "./../../DB/models/index.models.js";
 import ApiFeatures from "../../utils/api-features/api-features.js";
 import * as utils from "../../utils/index.utils.js";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 //new meal
 export const addMeal = async (req, res, next) => {
@@ -131,29 +131,50 @@ export const updateMeal = async (req, res, next) => {
   });
 };
 
-// delete meal
+// delete meal with session
 export const deleteMeal = async (req, res, next) => {
-  const { id } = req.params;
-  const { user } = req;
+  //start a session
+  const session = await mongoose.startSession();
+  try {
+    const { id } = req.params;
+    const { user } = req;
 
-  //check meal is exist
-  const mealExist = await models.Meal.findById(id);
-  if (!mealExist) return next(new utils.AppError("Meal not exist", 404));
+    //start transaction
+    session.startTransaction();
 
-  //check authorized chef
-  if (mealExist.chef.toString() != user.id)
-    return next(new utils.AppError("Unauthorized to delete this meal", 401));
+    const mealExist = await models.Meal.findById(id).session(session);
+    if (!mealExist) {
+      await session.abortTransaction();
+      return next(new utils.AppError("Meal not exist", 404));
+    }
 
-  //delete meal
-  await mealExist.deleteOne();
+    if (mealExist.chef.toString() != user.id) {
+      await session.abortTransaction();
+      return next(new utils.AppError("Unauthorized to delete this meal", 401));
+    }
 
-  return res.status(200).json({
-    success: true,
-    message: "meal deleted successfully",
-    data: {
-      meal: mealExist,
-    },
-  });
+    await models.User.updateMany(
+      { favoriteMeals: mealExist.id },
+      { $pull: { favoriteMeals: mealExist.id } },
+      { session }
+    );
+
+    await mealExist.deleteOne({ session });
+
+    //commit transaction
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "meal deleted successfully",
+      data: { meal: mealExist },
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    next(err); // handle error in your global error handler
+  } finally {
+    session.endSession();
+  }
 };
 
 //get all chef meals
@@ -367,6 +388,9 @@ export const getAllMeals = async (req, res, next) => {
         pipeline: [
           {
             $project: {
+              firstName: 1,
+              lastName: 1,
+              image: 1,
               kitchenStatus: 1,
             },
           },
@@ -385,12 +409,15 @@ export const getAllMeals = async (req, res, next) => {
             { $avg: "$reviews.rate" },
           ],
         },
+        chefName: { $concat: ["$chef.firstName", " ", "$chef.lastName"] },
+        chefImage: "$chef.image",
       },
     },
     {
       $project: {
         reviews: 0,
         password: 0,
+        chef: 0,
       },
     },
     {
@@ -460,6 +487,9 @@ export const getSimilarMeals = async (req, res, next) => {
 
     const similarMeals = await models.Meal.find({
       _id: { $in: similarMealIds },
+    }).populate({
+      path: "chef",
+      select: "firstName lastName displayName image",
     });
 
     if (similarMeals.length === 0)
@@ -473,4 +503,74 @@ export const getSimilarMeals = async (req, res, next) => {
   } catch (error) {
     return next(new utils.AppError("Image search failed", 500));
   }
+};
+
+export const getRecommendedMeals = async (req, res, next) => {
+  const { userIds } = req.body;
+
+  if (!userIds || userIds.length === 0) {
+    return res
+      .status(400)
+      .json({ message: "UserIds must be a non-empty array." });
+  }
+
+  // Fetch users with their favoriteMeals
+  const users = await models.User.find({
+    _id: { $in: userIds },
+  }).select("_id favoriteMeals");
+
+  // Build map of userId -> Set of favorite mealIds (as strings)
+  const userFavoritesMap = new Map();
+  for (const user of users) {
+    userFavoritesMap.set(
+      user._id.toString(),
+      new Set(user.favoriteMeals.map((id) => id.toString()))
+    );
+  }
+
+  // Fetch recommendations and populate meals
+  const recommendations = await models.User_Recommendation.find({
+    userId: { $in: userIds },
+  }).populate({
+    path: "meals.mealId",
+    populate: { path: "chef" },
+  });
+
+  // Build response
+  const response = recommendations.map((rec) => {
+    const userIdStr = rec.userId.toString();
+    const favoriteSet = userFavoritesMap.get(userIdStr) || new Set();
+
+    const validMeals = rec.meals
+      .filter((meal) => meal.mealId && typeof meal.mealId === "object")
+      .map((meal) => {
+        const m = meal.mealId;
+        const chef = m.chef || {};
+        const mealIdStr = m._id.toString();
+
+        return {
+          id: m._id,
+          name: m.name,
+          images: m.images || [],
+          price: m.price,
+          stock: m.stock,
+          category: m.category,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          avgRating: m.avgRating || 0,
+          chef: {
+            chefImage: chef.image || null,
+            chefName: chef.firstName + " " + chef.lastName,
+          },
+          isFavorite: favoriteSet.has(mealIdStr),
+        };
+      });
+
+    return {
+      userId: rec.userId,
+      meals: validMeals,
+    };
+  });
+
+  res.status(200).json({ recommendations: response });
 };
