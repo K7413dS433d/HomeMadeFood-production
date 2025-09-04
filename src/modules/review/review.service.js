@@ -4,44 +4,44 @@ import * as constants from '../../common/constants/index.constant.js'
 
 
 export const addReview = async (req, res, next) => {
-        const { mealId } = req.params;
-        const { comment, rate } = req.body;
+    const { mealId } = req.params;
+    const { comment, rate } = req.body;
 
-        const mealExists = await models.Meal.findById(mealId);
-        if (!mealExists) {
-            return next(new utils.AppError('Meal is not found.', 404));
-        }
+    const mealExists = await models.Meal.findById(mealId);
+    if (!mealExists) {
+        return next(new utils.AppError('Meal is not found.', 404));
+    }
 
-        const cartItemIds = await models.Order
-            .find({
-                user: req.user._id,
-                status: constants.orderStatus.DELIVERED,
-            })
-            .distinct('cartItem');
+    const cartItemIds = await models.Order
+        .find({
+            user: req.user._id,
+            status: constants.orderStatus.DELIVERED,
+        })
+        .distinct('cartItem');
 
-        if (cartItemIds.length === 0) {
-            return next(
-                new utils.AppError(
-                    'You must have purchased this product and it must be delivered to leave a review.',
-                    403
-                )
-            );
-        }
+    if (cartItemIds.length === 0) {
+        return next(
+            new utils.AppError(
+                'You must have purchased this product and it must be delivered to leave a review.',
+                403
+            )
+        );
+    }
 
 
-        const purchased = await models.CartItem.find({
-            _id: { $in: cartItemIds },
-            'meals.mealId': mealId,
-        });
+    const purchased = await models.CartItem.find({
+        _id: { $in: cartItemIds },
+        'meals.mealId': mealId,
+    });
 
-        if (purchased.length === 0) {
-            return next(
-                new utils.AppError(
-                    'You must have purchased this product and it must be delivered to leave a review.',
-                    403
-                )
-            );
-        }
+    if (purchased.length === 0) {
+        return next(
+            new utils.AppError(
+                'You must have purchased this product and it must be delivered to leave a review.',
+                403
+            )
+        );
+    }
     const review = await models.Review.findOneAndUpdate(
         { user: req.user._id, meal: mealId, isDeleted: false },
         { comment, rate },
@@ -62,27 +62,29 @@ export const addReview = async (req, res, next) => {
     // Create new review
     const newReview = await models.Review.create({
         user: req.user._id,
-        meal: mealId,
-        comment,
-        rate,
-    });
+        status: constants.orderStatus.DELIVERED
+    }).populate({
+        path: 'cartItem',
+        select: 'meals'
+    }).lean()
 
-    // Add review to meal
-    await models.Meal.findByIdAndUpdate(mealId, {
-        $push: { reviews: newReview._id },
-    });
+    // check if meal exist in the cartitem of the order
+    const mealExistInOrder = orderExist?.cartItem?.meals.some(meal => meal.mealId.toString() === mealId.toString())
+    if (!orderExist || !mealExistInOrder) return next(new utils.AppError("You must have purchased this product and it must be deliverd to you to leave a review.", 403))
 
-    // Populate user data after creation
-    const populatedReview = await models.Review.findById(newReview._id).populate({
-        path: 'user',
-        select: 'firstName lastName image',
-    });
+    // check if user has reviewed on this  meal before.
+    const reviewExist = await models.Review.findOneAndUpdate({ user: req.user._id, meal: mealId, isDeleted: false }, { comment, rate }, { new: true })
+    if (!reviewExist) {
+        // create new review
+        const review = await models.Review.create({ user: req.user._id, meal: mealId, comment, rate })
+        if (!review) return next(new utils.AppError("Failed to create review.", 500))
 
-    return res.status(201).json({
-        success: true,
-        message: 'Review added successfully.',
-        data: populatedReview,
-    });
+        // add review to meal.    
+        await models.Meal.findByIdAndUpdate(mealId, { $push: { reviews: review._id } })
+
+        return res.status(201).json({ success: true, message: "Review added successfully.", data: review })
+    }
+    return res.status(200).json({ success: true, message: "Review updated successfully.", data: reviewExist })
 }
 // user can delete a review
 export const deleteReview = async (req, res, next) => {
@@ -116,20 +118,20 @@ export const getUserReviews = async (req, res, next) => {
     if (!mealExist) return next(new utils.AppError("Meal is not found.", 404));
 
     // Get the user's review for the specific meal
-    const review = await models.Review.findOne({ 
-        user: req.user._id, 
-        meal: mealId, 
-        isDeleted: false 
+    const review = await models.Review.findOne({
+        user: req.user._id,
+        meal: mealId,
+        isDeleted: false
     }).populate({
         path: 'user',
         select: 'firstName lastName image'
     })
     if (!review) return next(new utils.AppError("No review by this user on the specified meal.", 404));
 
-    return res.status(200).json({ 
-        success: true, 
-        message: "User review found.", 
-        data: review 
+    return res.status(200).json({
+        success: true,
+        message: "User review found.",
+        data: review
     });
 }
 // user can get any review related to him
