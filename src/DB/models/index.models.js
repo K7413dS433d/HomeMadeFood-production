@@ -22,7 +22,6 @@ import CartItem from "./CartItem/cartitem.model.js";
 import Cart from "./Cart/cart.model.js";
 // recommendation
 import User_Recommendation from "./Recommendations/meal.recommendation.js";
-// recommendation
-import User_Recommendation from "./Recommendations/meal.recommendation.js";
+
 //exports
 export default { User, Location, Meal, OTP, Review, Order, CartItem, Cart, User_Recommendation };
